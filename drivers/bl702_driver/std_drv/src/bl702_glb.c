@@ -2591,6 +2591,71 @@ BL_Err_Type ATTR_TCM_SECTION GLB_GPIO_Init(GLB_GPIO_Cfg_Type *cfg)
     /* drive strength(drive) = 2  <=>  11.2mA @ 3.3V */
     /* drive strength(drive) = 3  <=>  12.8mA @ 3.3V */
     
+/*
+/********GPIO_PIN_0 - SDA  input
+    uint8_t gpioPin=cfg->gpioPin;
+    pOut=(uint32_t *)(GLB_BASE+GLB_GPIO_OUTPUT_EN_OFFSET+((gpioPin>>5)<<2));
+    pos=gpioPin%32;
+
+    *pOut=*pOut & ( ~( 1 << ( gpioPin % 32 ) ) ) );
+
+
+    tmpVal=(*((volatile uint32_t*)(uintptr_t)(((uint32_t)0x40000000)+0x100+gpioPin/2*4)));
+    tmpVal= ( (tmpVal) |(1U<<GLB_REG_GPIO_0_IE_POS))
+    tmpVal=( (tmpVal) & GLB_REG_GPIO_0_PU_UMSK )
+    tmpVal=( (tmpVal) & GLB_REG_GPIO_0_PD_UMSK )
+    tmpVal=( ((tmpVal)&GLB_REG_GPIO_0_DRV_UMSK) | ((uint32_t)(cfg->drive)<<GLB_REG_GPIO_0_DRV_POS) );
+    tmpVal=( ((tmpVal)&GLB_REG_GPIO_0_SMT_UMSK) | ((uint32_t)(cfg->smtCtrl)<<GLB_REG_GPIO_0_SMT_POS) )
+    tmpVal=( ((tmpVal)&GLB_REG_GPIO_0_FUNC_SEL_UMSK) | ((uint32_t)(cfg->gpioFun)<<GLB_REG_GPIO_0_FUNC_SEL_POS) )        
+
+
+/********GPIO_PIN_0 - SDA  output
+
+    uint8_t gpioPin=cfg->gpioPin;
+    pOut=(uint32_t *)(GLB_BASE+GLB_GPIO_OUTPUT_EN_OFFSET+((gpioPin>>5)<<2));
+    pos=gpioPin%32;
+
+    *pOut=*pOut & ( ~( 1 << ( gpioPin % 32 ) ) ) );
+
+
+    tmpVal=(*((volatile uint32_t*)(uintptr_t)(((uint32_t)0x40000000)+0x100+gpioPin/2*4)));
+
+
+/********GPIO_PIN_15 - SCL  input
+    uint8_t gpioPin=cfg->gpioPin;
+    pOut=(uint32_t *)(GLB_BASE+GLB_GPIO_OUTPUT_EN_OFFSET+((gpioPin>>5)<<2));
+    pos=gpioPin%32;
+
+    *pOut=*pOut & ( ~( 1 << ( gpioPin % 32 ) ) ) );
+
+
+    tmpVal=(*((volatile uint32_t*)(uintptr_t)(((uint32_t)0x40000000)+0x100+gpioPin/2*4)));
+
+
+
+/********GPIO_PIN_15 - SCL  output
+
+    uint8_t gpioPin=cfg->gpioPin;
+    pOut=(uint32_t *)(GLB_BASE+GLB_GPIO_OUTPUT_EN_OFFSET+((gpioPin>>5)<<2));
+    pos=gpioPin%32;
+
+    *pOut=*pOut & ( ~( 1 << ( gpioPin % 32 ) ) ) );
+
+
+    tmpVal=(*((volatile uint32_t*)(uintptr_t)(((uint32_t)0x40000000)+0x100+gpioPin/2*4)));
+
+    tmpVal=
+
+
+
+
+
+
+
+
+                        0x40000000+0x190 +((gpioPin>>5)<<2))
+
+*/  
     pOut=(uint32_t *)(GLB_BASE+GLB_GPIO_OUTPUT_EN_OFFSET+((gpioPin>>5)<<2));
     pos=gpioPin%32;
     tmpOut=*pOut;
@@ -2598,8 +2663,13 @@ BL_Err_Type ATTR_TCM_SECTION GLB_GPIO_Init(GLB_GPIO_Cfg_Type *cfg)
     /* Disable output anyway*/
     tmpOut &= (~(1<<pos));
     *pOut=tmpOut;
-    
+  //              (  *(     (volatile uint32_t*) (uintptr_t)  ( ( ( uint32_t ) 0x40000000 ) + 0x100 + gpioPin / 2 * 4 )     )    )          
     tmpVal=BL_RD_WORD(GLB_BASE+GLB_GPIO_OFFSET+gpioPin/2*4);
+
+
+
+
+
     if(gpioPin%2==0){
         if(cfg->gpioMode!=GPIO_MODE_ANALOG){
             /* not analog mode */
@@ -2633,10 +2703,15 @@ BL_Err_Type ATTR_TCM_SECTION GLB_GPIO_Init(GLB_GPIO_Cfg_Type *cfg)
         }
         
         /* set drive && smt && func */
+
+
+
         tmpVal=BL_SET_REG_BITS_VAL(tmpVal,GLB_REG_GPIO_0_DRV,cfg->drive);
         tmpVal=BL_SET_REG_BITS_VAL(tmpVal,GLB_REG_GPIO_0_SMT,cfg->smtCtrl);
         tmpVal=BL_SET_REG_BITS_VAL(tmpVal,GLB_REG_GPIO_0_FUNC_SEL,cfg->gpioFun);
-    }else{
+    }
+    else
+    {
         if(cfg->gpioMode!=GPIO_MODE_ANALOG){
             /* not analog mode */
             
@@ -3018,7 +3093,8 @@ uint32_t GLB_GPIO_Read(GLB_GPIO_Type gpioPin)
         if(BL_RD_REG(GLB_BASE,GLB_GPIO_USE_PSRAM__IO)&(1<<(gpioPin-32))){
             gpioPin-=9;
         }
-    }
+    }   
+    //                       0x4000 0000 + 0x180 => 4000 0180  
     uint32_t *p=(uint32_t *)(GLB_BASE+GLB_GPIO_INPUT_OFFSET+((gpioPin>>5)<<2));
     uint32_t pos=gpioPin%32;
 
