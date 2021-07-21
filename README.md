@@ -138,6 +138,9 @@ make
 ~~~
 
 ## Download
+首先断开设备，按boot键上电，然后运行下面命令进行烧录！
+
+
 ~~~ bash
 make download
 ~~~
