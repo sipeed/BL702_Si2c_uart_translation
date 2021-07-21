@@ -77,24 +77,7 @@ Another GUI flash tool is BouffaloLabDevCube:
 - [Bouffalo Lab Dev Cube For Windows](https://dev.bouffalolab.com/media/upload/download/BouffaloLabDevCube-1.5.2-win32.zip)
 - [Bouffalo Lab Dev Cube For Ubuntu](https://dev.bouffalolab.com/media/upload/download/BouffaloLabDevCube-1.5.2-linux-x86.tar.gz)
 
-## usb2uartjtag (default)
-Support JTAG+UART function
 
-UART support baudrate below 2Mbps, and 3Mbps, and some experimental baudrate (stability is not guaranteed):
-
-~~~
-12M, 9.6M, 8M, 6.4M, 6M, 4.8M, 4M, 3.2M
-we remap baudrate in 10000~12000 to (baud-10000)*10000
-for example, 11200bps -> 12Mbps
-~~~
-
-LED0 for RX indication, LED1 for TX indication.
-
-JTAG function is verified for :
-
-- RV32 Xuantie E906/E907
-- RV64 Xuantie C906
-- Gowin FPGA GW1N-1, GW1NS-4C.
 
 
 
