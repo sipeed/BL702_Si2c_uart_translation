@@ -1,7 +1,7 @@
 BOARD?=bl702_debugger
 CHIP?=bl702
 APP_DIR?=examples
-APP?=usb2uartjtag
+APP?=translation
 CPU_ID?=m0
 
 SUPPORT_SHELL?=n

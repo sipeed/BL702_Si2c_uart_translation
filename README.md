@@ -1,6 +1,6 @@
 # Description
 
-**RV-Debugger-BL702** is an opensource project that implement a JTAG+UART debugger with BL702C-A0.
+**RV-Debugger-BL702** is an opensource project that implement a slave i2c translation uart
 
 [BL702](https://www.bouffalolab.com/bl70X) is highly integrated BLE and Zigbee combo chipset for IoT applications, contains **32-bit RISC-V** CPU with FPU, frequency up to **144MHz**, with **132KB RAM** and **192 KB ROM**, 1Kb eFuse, **512KB embedded Flash**, USB2.0 FS device interface, and many other features.
 
@@ -96,8 +96,6 @@ JTAG function is verified for :
 - RV64 Xuantie C906
 - Gowin FPGA GW1N-1, GW1NS-4C.
 
-## usb2dualuart
-TODO.
 
 
 # Project Structure
@@ -124,9 +122,8 @@ RV-Debugger-BL702
 ├── drivers
 │   └── bl702_driver
 ├── examples
-│   └── usb
-│       ├── usb2uartjtag
-│       └── usb2dualuart
+│   ├── uart_tanslation_i2c
+│   │   └── translation
 ├── out
 ├── tools
 │   ├── bflb_flash_tool
@@ -141,14 +138,24 @@ BL SDK usage tutorial refer to http://bouffalolab.gitee.io/bl_mcu_sdk/
 ## Develop Guide
 the main file is:
 ~~~
-examples/usb/usb2uartjtag:
-├── main.c
-├── uart_interface.c
-├── jtag_process.c
-└── io_cfg.h         //main io cfg, another file is pinmux_config.h in bsp/board/bl702_debugger
-components/usb_stack/class/vendor:
-└── usbd_ftdi.c      //all FTDI vendor request process, like baudrate set, dtr/rts set, Latency_Timer
+examples/uart_tanslation_i2c/translation:
+    ├── CMakeLists.txt
+    ├── i2c_slave.c
+    ├── i2c_slave.h
+    ├── main.c
+    ├── readme.md
+    ├── uart_interface.c
+    └── uart_interface.h bsp/board/bl702_debugger
+set, dtr/rts set, Latency_Timer
 ~~~
 
-TODO
+## Build project
+~~~ bash
+make
+~~~
+
+## Download
+~~~ bash
+make download
+~~~
 
