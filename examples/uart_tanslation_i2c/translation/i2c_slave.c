@@ -147,6 +147,7 @@ int32_t i2c_slave_sda_interrupt_callback()
   volatile int count ;
   slave = &my_slave;
 
+  i2c_count=0;
   //wait scl HIGH
   if (wait_for_scl(slave, 0) == I2C_RET_END)
   {

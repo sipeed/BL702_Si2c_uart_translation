@@ -89,18 +89,18 @@ int main(void)
         if(i2c_flages == 1)
         {
              
-                uint8_t TX_AABB[2+i2c_count];
-                TX_AABB[0]=0xAA;
-                TX_AABB[1]=0xBB;
-                
-                for(int i=0;i<i2c_count;i++)
-                {
-                    TX_AABB[2+i]=my_slave.dev.data[i];
-                }
+            uint8_t TX_AABB[2+i2c_count];
+            TX_AABB[0]=0xAA;
+            TX_AABB[1]=0xBB;
+            
+            for(int i=0;i<i2c_count;i++)
+            {
+                TX_AABB[2+i]=my_slave.dev.data[i];
+            }
 
-                Ring_Buffer_Write(&usb_rx_rb,(uint8_t *)TX_AABB, 2+i2c_count);
+            Ring_Buffer_Write(&usb_rx_rb,(uint8_t *)TX_AABB, 2+i2c_count);
 
-                i2c_flages = 0;
+            i2c_flages = 0;
 
         }
     }
