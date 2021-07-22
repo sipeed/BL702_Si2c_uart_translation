@@ -94,7 +94,7 @@ int32_t i2c_slave_init(void)
   return 0;
 }
 
-static once_count = 0;
+// static once_count = 0;
 
 #define BUFFER_MAX 256 //缓冲区大小
 
@@ -321,10 +321,12 @@ static inline int32_t slave_byte_write(struct i2c_slave *slave, uint8_t val)
     i2c_sda_set(val & (1 << (7 - i)));
     if (wait_for_scl(slave, 1) == I2C_RET_END)
     {
+      i2c_sda_set(1);
       return I2C_RET_END;
     }
     if (wait_for_scl(slave, 0) == I2C_RET_END)
     {
+      i2c_sda_set(1);
       return I2C_RET_END;
     }
   }
@@ -343,11 +345,12 @@ static inline int slave_byte_read(struct i2c_slave *slave, uint8_t *data)
     //TODO:timeout check
     if (wait_for_scl(slave, 1) != I2C_RET_OK)
     {
+      slave->state = I2C_STATE_STOP;
       return I2C_RET_END;
     }
 
     val = (val << 0x1) | i2c_sda_get();
-    count = 1000;
+    count = 3000;
     while (i2c_scl_get())
     { //等待高点平结束，判断是否出现异常情况
       //TODO:timeout check
@@ -356,6 +359,7 @@ static inline int slave_byte_read(struct i2c_slave *slave, uint8_t *data)
 
       if ((count--) == 0) //超时检查
       {
+        slave->state = I2C_STATE_STOP;
         return I2C_RET_END;
       }
 
@@ -387,6 +391,7 @@ static inline int i2c_ack_send(struct i2c_slave *slave)
   i2c_sda_set(0);
   /* wait master read(scl rising edge trigger) ACK */
 
+ /* wait scl to HIGH */
   if (wait_for_scl(slave, 1) != I2C_RET_OK)
   {
     i2c_sda_set(1);
@@ -434,6 +439,7 @@ static inline int32_t i2c_ack_read(struct i2c_slave *slave)
   /* wait master set sda */
   if (wait_for_scl(slave, 1) == I2C_RET_END)
   {
+    slave->state = I2C_STATE_STOP;
     return I2C_RET_END;
   }
 
@@ -454,6 +460,7 @@ static inline int32_t i2c_ack_read(struct i2c_slave *slave)
     //TODO:timeout check
     if ((count--) == 0)
     {
+      slave->state = I2C_STATE_STOP;
       return I2C_RET_END;
     }
 
@@ -509,7 +516,7 @@ static inline int32_t slave_data_send(struct i2c_slave *slave)
     }
   } while (i2c_ack_read(slave) == I2C_RET_OK);
 
-  once_count = 0;
+  // once_count = 0;
   // memset(slave->dev.send_data, 0, 256);
   // slave->dev.data_offs = 0;
   slave->state = I2C_STATE_IDLE;
