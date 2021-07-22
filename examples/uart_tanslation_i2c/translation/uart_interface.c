@@ -65,13 +65,15 @@ void uart_irq_callback(struct device *dev, void *args, uint32_t size, uint32_t s
 {
     memcpy(UART_RX.UART_pData,(uint8_t *)args,size);
     memset(args,0,size);
-
+    // gpio_write(GPIO_PIN_9, 0);
     if(UART_RX.UART_pData[0]==0xBB && UART_RX.UART_pData[1]==0xAA)
     {
+        
         int i;
         for(i=2;i<size;i++)
         {
             i2c_send_data(UART_RX.UART_pData[i]);
+            
         } 
     }
     RX_Data_Init();

@@ -97,12 +97,13 @@ int32_t i2c_slave_init(void)
 
 // static once_count = 0;
 
-#define BUFFER_MAX 256 //缓冲区大小
+#define BUFFER_MAX 2560 //缓冲区大小
 
 typedef struct _circle_buffer
 {
   uint8_t head_pos;                  //缓冲区头部位置
   uint8_t tail_pos;                  //缓冲区尾部位置
+
   uint8_t circle_buffer[BUFFER_MAX]; //缓冲区数组
 } circle_buffer;
 
@@ -132,9 +133,15 @@ void bufferPush(const uint8_t _buf)
 
 uint32_t i2c_send_data(uint8_t send_data)
 {
-  struct i2c_slave *slave;
-  slave = &my_slave;
+  // struct i2c_slave *slave;
+  // slave = &my_slave;
   bufferPush(send_data);
+  if(send_data!=0)
+  {
+    gpio_write(GPIO_PIN_17, 0);
+  }
+  
+  // gpio_write(GPIO_PIN_17, 0);
   // slave->dev.send_data[once_count++]=send_data;
 }
 
@@ -147,7 +154,7 @@ int32_t i2c_slave_sda_interrupt_callback()
   volatile int count ;
   slave = &my_slave;
 
-  i2c_count=0;
+  
   //wait scl HIGH
   if (wait_for_scl(slave, 0) == I2C_RET_END)
   {
@@ -155,7 +162,7 @@ int32_t i2c_slave_sda_interrupt_callback()
     goto end;
   }
   slave->state = I2C_STATE_START;
-
+  i2c_count=0;
   while (slave->state == I2C_STATE_START)
   {
     /* read address + R/W bit */
@@ -202,21 +209,24 @@ int32_t i2c_slave_sda_interrupt_callback()
     else
     {
       val = slave_data_receive(slave);
+      // gpio_write(GPIO_PIN_17, 0);
       if (val == I2C_RET_END)
       {
-        i2c_count++;
+        
         if (slave->state == I2C_STATE_START)
         {
           continue;
         }
         else
         {
-          i2c_flages = 1;
+          // gpio_write(GPIO_PIN_9, 0);
+          
           goto end;
         }
       }
       else if(slave->state == I2C_STATE_STOP)
       {
+        i2c_flages = 1;
         break;
       }
     }
@@ -477,6 +487,11 @@ static inline int32_t slave_data_send(struct i2c_slave *slave)
 
     bufferPop(&val);
 
+    if(val!=0)
+    {
+      gpio_write(GPIO_PIN_17, 0);
+    }
+
     if (slave_byte_write(slave, val) == I2C_RET_END)
     {
       return I2C_RET_END;
@@ -500,8 +515,10 @@ static inline int32_t slave_data_receive(struct i2c_slave *slave)
   uint8_t flag = I2C_DEV_OFFS;
   do
   {
+    i2c_count++;
     if (slave_byte_read(slave, &byte) == I2C_RET_OK)
     {
+      
       if (i2c_ack_send(slave) == I2C_RET_END)
       {
         return I2C_RET_END;
@@ -514,6 +531,6 @@ static inline int32_t slave_data_receive(struct i2c_slave *slave)
       return I2C_RET_END;
     }
   } while (slave->state != I2C_STATE_STOP);
-
+  i2c_count--;
   return I2C_RET_OK;
 }
