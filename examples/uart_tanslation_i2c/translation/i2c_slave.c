@@ -72,6 +72,7 @@ static inline void i2c_sda_set(int32_t val) __attribute__((optimize(gcc_good)));
 static inline int32_t wait_for_scl(struct i2c_slave *slave, int32_t level) __attribute__((optimize(gcc_good)));
 
 extern int i2c_flages;
+extern int i2c_count;
 
 struct i2c_slave my_slave;
 
@@ -202,6 +203,7 @@ int32_t i2c_slave_sda_interrupt_callback()
       val = slave_data_receive(slave);
       if (val == I2C_RET_END)
       {
+        i2c_count++;
         if (slave->state == I2C_STATE_START)
         {
           continue;
@@ -419,28 +421,19 @@ static inline int32_t i2c_ack_read(struct i2c_slave *slave)
   }
 
   count = 2000;
-  // while (!i2c_scl_get())
-  // {
-  //   //TODO:timeout check
-  //   if ((count--) == 0)
-  //   {
-  //     return I2C_RET_END;
-  //   }
-  // }
-  /* read ACK */
+
   val = i2c_sda_get();
-  /* keep checking sda when scl high */
+
   while (i2c_scl_get())
   {
-    //TODO:timeout check
+
     if ((count--) == 0)
     {
       slave->state = I2C_STATE_TIMEOUT;
       return I2C_RET_END;
     }
 
-    /* sda is drivered by master now.
-     * if it changes when scl is high,stop or start happened */
+
     temp = i2c_sda_get();
     if (!i2c_scl_get())
       break;
@@ -473,20 +466,16 @@ static inline int32_t i2c_ack_read(struct i2c_slave *slave)
   }
 }
 
-/*
-  i2c发送入口
-  发送数据
-*/
+
 static inline int32_t slave_data_send(struct i2c_slave *slave)
 {
   volatile uint8_t val;
 
   do
   {
-    // struct i2c_slave *slave;
-    // slave=&my_slave;
+
     bufferPop(&val);
-    // val = slave->dev.send_data[offs];
+
     if (slave_byte_write(slave, val) == I2C_RET_END)
     {
       return I2C_RET_END;
