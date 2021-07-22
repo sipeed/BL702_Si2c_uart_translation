@@ -143,6 +143,7 @@ int32_t i2c_slave_sda_interrupt_callback()
   volatile uint8_t byte;
   struct i2c_slave *slave;
   volatile int32_t idx;
+  volatile int count ;
   slave = &my_slave;
 
   if (wait_for_scl(slave, 0) == I2C_RET_END)
@@ -220,9 +221,16 @@ int32_t i2c_slave_sda_interrupt_callback()
       }
     }
   }
-
+  count = 3000;
   /* wait scl and sda high */
-  while (!(i2c_scl_get() && i2c_sda_get()));
+  while (!(i2c_scl_get() && i2c_sda_get()))
+  {
+    //TODO:timeout check
+    if((count --) == 0)
+    {
+      goto end;
+    }
+  }
   slave->state = I2C_STATE_IDLE;
   // MSG("i receiveone:%x01",byte);
   return 0;
