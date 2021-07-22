@@ -146,32 +146,25 @@ int32_t i2c_slave_sda_interrupt_callback()
   volatile int count ;
   slave = &my_slave;
 
+  //wait scl HIGH
   if (wait_for_scl(slave, 0) == I2C_RET_END)
   {
     /* timeout */
     goto end;
   }
-
   slave->state = I2C_STATE_START;
 
   while (slave->state == I2C_STATE_START)
   {
     /* read address + R/W bit */
-    val = slave_byte_read(slave, &byte);
-
-    if (val == I2C_RET_END)
-    {
-      if (slave->state == I2C_STATE_START)
-      {
-        continue;
-      }
-      /* timeout, stop */
-      goto end;
+    if(slave_byte_read(slave, &byte) != I2C_RET_OK)
+    { //发生读错误
+      goto end;   //退出
     }
 
-    idx = i2c_dev_address_check(slave, byte);
+    idx = i2c_dev_address_check(slave, byte);//检查地址
 
-    if (idx == I2C_RET_END)
+    if (idx == I2C_RET_END)   //地址错误
     {
       /* device address mismatch */
       goto end;
@@ -183,7 +176,7 @@ int32_t i2c_slave_sda_interrupt_callback()
 
     if (i2c_ack_send(slave) == I2C_RET_END)
     {
-      goto end;
+      goto end;     //应答错误
     }
     /* check R/W bit */
     val = byte;
@@ -219,11 +212,16 @@ int32_t i2c_slave_sda_interrupt_callback()
           goto end;
         }
       }
+      else if(slave->state == I2C_STATE_STOP)
+      {
+        break;
+      }
     }
   }
-  count = 3000;
+  end:
+  count = 5000;
   /* wait scl and sda high */
-  while (!(i2c_scl_get() && i2c_sda_get()))
+  while (! (i2c_scl_get() && i2c_sda_get()))
   {
     //TODO:timeout check
     if((count --) == 0)
@@ -231,15 +229,15 @@ int32_t i2c_slave_sda_interrupt_callback()
       goto end;
     }
   }
-  slave->state = I2C_STATE_IDLE;
-  // MSG("i receiveone:%x01",byte);
-  return 0;
-
-end:
   i2c_pins_init();
   slave->state = I2C_STATE_IDLE;
-  // MSG("i receivetwo:%01x \r\n", byte);
-  return -1;
+  return 0;
+
+// end:
+//   i2c_pins_init();
+//   slave->state = I2C_STATE_IDLE;
+//   // MSG("i receivetwo:%01x \r\n", byte);
+//   return -1;
 }
 
 static inline int32_t i2c_scl_get()
@@ -293,9 +291,9 @@ static void i2c_slave_store_data(struct i2c_slave *slave, uint8_t flag, uint8_t 
 static inline int32_t i2c_dev_address_check(struct i2c_slave *slave, int32_t val)
 {
   if (slave->dev.addr == (val >> 1))
-    return 0;
+    return I2C_RET_OK;
 
-  return -1;
+  return I2C_RET_END;
 }
 
 static inline int32_t wait_for_scl(struct i2c_slave *slave, int32_t level)
@@ -345,7 +343,6 @@ static inline int slave_byte_read(struct i2c_slave *slave, uint8_t *data)
     //TODO:timeout check
     if (wait_for_scl(slave, 1) != I2C_RET_OK)
     {
-      slave->state = I2C_STATE_STOP;
       return I2C_RET_END;
     }
 
@@ -357,9 +354,9 @@ static inline int slave_byte_read(struct i2c_slave *slave, uint8_t *data)
       /* sda is drivered by master now.
        * if it changes when scl is high,stop or start happened */
 
-      if ((count--) == 0) //超时检查
+      if ((count--) == 0)
       {
-        slave->state = I2C_STATE_STOP;
+        slave->state = I2C_STATE_TIMEOUT;
         return I2C_RET_END;
       }
 
@@ -386,7 +383,6 @@ static inline int slave_byte_read(struct i2c_slave *slave, uint8_t *data)
 
 static inline int i2c_ack_send(struct i2c_slave *slave)
 {
-  // int count;
   /* slave driver sda to low for ACK */
   i2c_sda_set(0);
   /* wait master read(scl rising edge trigger) ACK */
@@ -398,16 +394,6 @@ static inline int i2c_ack_send(struct i2c_slave *slave)
     return I2C_RET_END;
   }
 
-  // count = 1000;
-  // while (!i2c_scl_get())//等待高点平
-  // {
-  //   //TODO:timeout check
-  //   if ((count--) == 0)
-  //   {
-  //     goto end_ack;
-  //   }
-  // }
-
   /* wait scl to low */
 
   if (wait_for_scl(slave, 0) != I2C_RET_OK)
@@ -416,17 +402,6 @@ static inline int i2c_ack_send(struct i2c_slave *slave)
     return I2C_RET_END;
   }
 
-  // count = 1000;
-  // while (i2c_scl_get())
-  // {
-  //   //TODO:timeout check
-  //   if ((count--) == 0)
-  //   {
-  //     goto end_ack;
-  //   }
-  // }
-  // end_ack:
-  /* slave release sda */
   i2c_sda_set(1);
   return I2C_RET_OK;
 }
@@ -460,7 +435,7 @@ static inline int32_t i2c_ack_read(struct i2c_slave *slave)
     //TODO:timeout check
     if ((count--) == 0)
     {
-      slave->state = I2C_STATE_STOP;
+      slave->state = I2C_STATE_TIMEOUT;
       return I2C_RET_END;
     }
 
@@ -487,11 +462,13 @@ static inline int32_t i2c_ack_read(struct i2c_slave *slave)
   if (val == 0x0)
   {
     /* ACK */
+    slave->state = I2C_STATE_ACK;
     return I2C_RET_OK;
   }
   else
   {
     /* NACK */
+    slave->state = I2C_STATE_NACK;
     return I2C_RET_END;
   }
 }
@@ -522,6 +499,10 @@ static inline int32_t slave_data_send(struct i2c_slave *slave)
   slave->state = I2C_STATE_IDLE;
   return I2C_RET_OK;
 }
+
+
+
+
 static inline int32_t slave_data_receive(struct i2c_slave *slave)
 {
   int32_t val = 0;
@@ -529,18 +510,20 @@ static inline int32_t slave_data_receive(struct i2c_slave *slave)
   uint8_t flag = I2C_DEV_OFFS;
   do
   {
-    val = slave_byte_read(slave, &byte);
-    if (val == I2C_RET_END)
+    if (slave_byte_read(slave, &byte) == I2C_RET_OK)
+    {
+      if (i2c_ack_send(slave) == I2C_RET_END)
+      {
+        return I2C_RET_END;
+      }
+      i2c_slave_store_data(slave, flag, byte);
+      flag = I2C_DEV_DATA;
+    }
+    else if(slave->state ==  I2C_STATE_TIMEOUT)
     {
       return I2C_RET_END;
     }
+  } while (slave->state != I2C_STATE_STOP);
 
-    if (i2c_ack_send(slave) == I2C_RET_END)
-    {
-      return I2C_RET_END;
-    }
-    i2c_slave_store_data(slave, flag, byte);
-    flag = I2C_DEV_DATA;
-  } while (val != I2C_RET_END);
   return I2C_RET_OK;
 }
