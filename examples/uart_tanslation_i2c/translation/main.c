@@ -55,7 +55,6 @@ int main(void)
     GLB_Select_Internal_Flash();
 
     bflb_platform_init(0);
-
     uart_ringbuffer_init();
     uart1_init();
     uart1_config(115200, 8, UART_PAR_NONE, UART_STOP_ONE);

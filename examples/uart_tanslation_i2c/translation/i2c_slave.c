@@ -163,7 +163,6 @@ int32_t i2c_slave_sda_interrupt_callback()
     slave->state = I2C_STATE_DEVICE;
 
     /* send ACK */
-
     if (i2c_ack_send(slave) == I2C_RET_END)
     {
       goto end; //应答错误
@@ -190,7 +189,6 @@ int32_t i2c_slave_sda_interrupt_callback()
     else
     {
       val = slave_data_receive(slave);
-      // gpio_write(GPIO_PIN_17, 0);
       if (val == I2C_RET_END)
       {
 
@@ -200,15 +198,11 @@ int32_t i2c_slave_sda_interrupt_callback()
         }
         else
         {
-          // gpio_write(GPIO_PIN_9, 0);
+
+          i2c_flages = 1;
 
           goto end;
         }
-      }
-      else if (slave->state == I2C_STATE_STOP)
-      {
-        i2c_flages = 1;
-        break;
       }
     }
   }
@@ -301,10 +295,11 @@ static inline int32_t wait_for_scl(struct i2c_slave *slave, int32_t level)
 static inline int32_t slave_byte_write(struct i2c_slave *slave, uint8_t val)
 {
   volatile uint8_t i;
-
+  volatile uint8_t data = 0x80;
   for (i = 0; i < 8; i++)
   {
-    i2c_sda_set(val & (1 << (7 - i)));
+    i2c_sda_set(val & data);
+    data = data >> 1;
     if (wait_for_scl(slave, 1) == I2C_RET_END)
     {
       i2c_sda_set(1);
@@ -360,6 +355,7 @@ static inline int slave_byte_read(struct i2c_slave *slave, uint8_t *data)
         else
         {
           slave->state = I2C_STATE_START;
+          wait_for_scl(slave, 0);
         }
         return I2C_RET_END;
       }
@@ -475,27 +471,46 @@ static inline int32_t slave_data_send(struct i2c_slave *slave)
 
 static inline int32_t slave_data_receive(struct i2c_slave *slave)
 {
-  int32_t val = 0;
-  uint8_t byte;
-  uint8_t flag = I2C_DEV_OFFS;
+  volatile int32_t val = 0;
+  volatile uint8_t byte;
+  volatile uint8_t flag = I2C_DEV_OFFS;
   do
   {
-    i2c_count++;
-    if (slave_byte_read(slave, &byte) == I2C_RET_OK)
-    {
+    
 
-      if (i2c_ack_send(slave) == I2C_RET_END)
-      {
-        return I2C_RET_END;
-      }
-      i2c_slave_store_data(slave, flag, byte);
-      flag = I2C_DEV_DATA;
-    }
-    else if (slave->state == I2C_STATE_TIMEOUT)
-    {
-      return I2C_RET_END;
-    }
-  } while (slave->state != I2C_STATE_STOP);
-  i2c_count--;
+  val = slave_byte_read(slave, &byte);
+  if (val == I2C_RET_END)
+  {
+    return I2C_RET_END;
+  }
+
+  if (i2c_ack_send(slave) == I2C_RET_END)
+  {
+    return I2C_RET_END;
+  }
+
+  i2c_slave_store_data(slave, flag, byte);
+  flag = I2C_DEV_DATA;
+
+
+
+    // if (slave_byte_read(slave, &byte) == I2C_RET_OK)
+    // {
+
+    //   if (i2c_ack_send(slave) == I2C_RET_END)
+    //   {
+    //     return I2C_RET_END;
+    //   }
+    //   i2c_slave_store_data(slave, flag, byte);
+    //   flag = I2C_DEV_DATA;
+    // }
+    // else if (slave->state == I2C_STATE_TIMEOUT)
+    // {
+    //   return I2C_RET_END;
+    // }
+
+    i2c_count++;
+  } while (val != I2C_RET_END);
+  // } while (slave->state != I2C_STATE_STOP);
   return I2C_RET_OK;
 }

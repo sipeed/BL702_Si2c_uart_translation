@@ -14,7 +14,7 @@ struct i2c_device
 {
   uint8_t addr;
   uint8_t data_offs;
-  uint8_t data[4];
+  uint8_t data[256];
   uint8_t send_data[256];
 
   /* something such as data field
