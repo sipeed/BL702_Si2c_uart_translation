@@ -59,31 +59,48 @@ void RX_Data_Init(void)
     memset(UART_RX.UART_pData,0,256);
     
 }
+#define io1_HIGH ((*(volatile uint32_t *)0x40000188) |= (1 << 1))
+#define io1_LOW ((*(volatile uint32_t *)0x40000188) &= (~(1 << 1)))
 
 int uart_status;
 void uart_irq_callback(struct device *dev, void *args, uint32_t size, uint32_t state)
 {
+    // io1_HIGH;
     memcpy(UART_RX.UART_pData,(uint8_t *)args,size);
     memset(args,0,size);
-
+    // gpio_write(GPIO_PIN_9, 0);
+    // if(UART_RX.UART_pData[0]==0xBB && UART_RX.UART_pData[1]==0xAA)
+    // {
+        
     int i;
-    for(i=0;i<size;i=i+11)
+    for(i=0;i<size;i++)
     {
+        i2c_send_data(UART_RX.UART_pData[i]);
+        
+    } 
+    // }
+    RX_Data_Init();
+    // io1_LOW;
+}
 
-        if(UART_RX.UART_pData[i]==0xBB)
-        {
-            if(UART_RX.UART_pData[i+1]==0xAA)
-            {
-                int j;
-                for(j=0;j<9;j++)
-                {
-                    i2c_send_data(UART_RX.UART_pData[j+i+2]);
-                }
-            }
-        }
+    // int i;
+    // for(i=0;i<size;i=i+11)
+    // {
+
+    //     if(UART_RX.UART_pData[i]==0xBB)
+    //     {
+    //         if(UART_RX.UART_pData[i+1]==0xAA)
+    //         {
+    //             int j;
+    //             for(j=0;j<9;j++)
+    //             {
+    //                 i2c_send_data(UART_RX.UART_pData[j+i+2]);
+    //             }
+    //         }
+    //     }
 
 
-    }
+    // }
     // if(UART_RX.UART_pData[0]==0xBB)
     // {
     //     if(UART_RX.UART_pData[1]==0xAA)
@@ -114,11 +131,11 @@ void uart_irq_callback(struct device *dev, void *args, uint32_t size, uint32_t s
     //         // gpio_write(GPIO_PIN_17, 0);    
     //     }
 
-    RX_Data_Init();
+    
         
     
     
-}
+
 void uart1_init(void)
 {
     uart_register(UART1_INDEX, "uart1", DEVICE_OFLAG_RDWR);

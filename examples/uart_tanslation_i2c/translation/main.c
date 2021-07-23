@@ -55,6 +55,7 @@
 #define SCL_INPUT   SCL_da >> 15
 
 int i2c_flages;
+int i2c_count;
 
 //    pOut=(uint32_t *)(0x40000180);
 int main(void)
@@ -74,28 +75,50 @@ int main(void)
 
 
     gpio_set_mode(GPIO_PIN_1,GPIO_OUTPUT_PP_MODE);
-    gpio_set_mode(GPIO_PIN_9,GPIO_OUTPUT_PP_MODE);
-    gpio_set_mode(GPIO_PIN_17,GPIO_OUTPUT_PP_MODE);
+    // gpio_set_mode(GPIO_PIN_9,GPIO_OUTPUT_PP_MODE);
+    // gpio_set_mode(GPIO_PIN_17,GPIO_OUTPUT_PP_MODE);
 
-    gpio_write(GPIO_PIN_9, 1);
-    gpio_write(GPIO_PIN_17, 1);
+    // gpio_write(GPIO_PIN_9, 1);
+    // gpio_write(GPIO_PIN_17, 1);
 
+    uint8_t TX_AABB[200]={0};
 
     for(;;)
     {
         uart_send_from_ringbuffer();
+        disable_irq();
         if(SDA_INPUT == 0) i2c_slave_sda_interrupt_callback();
+        enable_irq();
+        
         if(i2c_flages == 1)
         {
-             
-                uint8_t TX_AABB[4]={0xAA,0xBB,0,0};
-                TX_AABB[2]=my_slave.dev.data[0];
-                TX_AABB[3]=my_slave.dev.data[1];
-                Ring_Buffer_Write(&usb_rx_rb,(uint8_t *)TX_AABB, 4);
+            // io1_HIGH;
+            // uint8_t TX_AABB[4]={0xAA,0xBB,0,0};
+            // TX_AABB[2]=my_slave.dev.data[0];
+            // TX_AABB[3]=my_slave.dev.data[1];
+            // Ring_Buffer_Write(&usb_rx_rb,(uint8_t *)TX_AABB, 4);
 
-                i2c_flages = 0;
+            // i2c_flages = 0;
 
+
+
+            // TX_AABB[0]=0xAA;
+            // TX_AABB[1]=0xBB;
+            
+            for(int i=0;i<i2c_count;i++)
+            {
+                TX_AABB[i]=my_slave.dev.data[i];
+            }
+
+            Ring_Buffer_Write(&usb_rx_rb,(uint8_t *)TX_AABB, i2c_count);
+            
+            memset(TX_AABB,0,200);
+
+            i2c_flages = 0;
+            
+            // io1_LOW;
         }
+        
     }
 
 }
