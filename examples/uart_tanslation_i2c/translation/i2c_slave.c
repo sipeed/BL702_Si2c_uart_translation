@@ -491,24 +491,6 @@ static inline int32_t slave_data_receive(struct i2c_slave *slave)
 
   i2c_slave_store_data(slave, flag, byte);
   flag = I2C_DEV_DATA;
-
-
-
-    // if (slave_byte_read(slave, &byte) == I2C_RET_OK)
-    // {
-
-    //   if (i2c_ack_send(slave) == I2C_RET_END)
-    //   {
-    //     return I2C_RET_END;
-    //   }
-    //   i2c_slave_store_data(slave, flag, byte);
-    //   flag = I2C_DEV_DATA;
-    // }
-    // else if (slave->state == I2C_STATE_TIMEOUT)
-    // {
-    //   return I2C_RET_END;
-    // }
-
     i2c_count++;
   } while (val != I2C_RET_END);
   // } while (slave->state != I2C_STATE_STOP);
