@@ -74,7 +74,7 @@ int main(void)
 
 
 
-    // gpio_set_mode(GPIO_PIN_1,GPIO_OUTPUT_PP_MODE);
+    gpio_set_mode(GPIO_PIN_1,GPIO_OUTPUT_PP_MODE);
     // gpio_set_mode(GPIO_PIN_9,GPIO_OUTPUT_PP_MODE);
     // gpio_set_mode(GPIO_PIN_17,GPIO_OUTPUT_PP_MODE);
 
@@ -86,10 +86,13 @@ int main(void)
     for(;;)
     {
         uart_send_from_ringbuffer();
+        disable_irq();
         if(SDA_INPUT == 0) i2c_slave_sda_interrupt_callback();
+        enable_irq();
         
         if(i2c_flages == 1)
         {
+            // io1_HIGH;
             // uint8_t TX_AABB[4]={0xAA,0xBB,0,0};
             // TX_AABB[2]=my_slave.dev.data[0];
             // TX_AABB[3]=my_slave.dev.data[1];
@@ -113,8 +116,9 @@ int main(void)
 
             i2c_flages = 0;
             
-
+            // io1_LOW;
         }
+        
     }
 
 }
