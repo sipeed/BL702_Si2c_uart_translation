@@ -1,6 +1,6 @@
 # output
-# *.bin
-# *.asm
+*.bin
+*.asm
 
 # Prerequisites
 *.d
