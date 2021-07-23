@@ -26,16 +26,9 @@
 #define SDA_da ((*(volatile uint32_t *)0x40000180) & 1)
 #define SCL_da ((*(volatile uint32_t *)0x40000180) & 1 << 15)
 
-//#define SDA_INPUT   ((*(volatile uint32_t *)0x40000180) & 1)
 #define SDA_INPUT SDA_da
 
-// #define SCL_INPUT   ((*(volatile uint32_t *)0x40000180) & 1 << 15)
 #define SCL_INPUT SCL_da >> 15
-
-// #define SDA_OUT     ((*(volatile uint32_t *)0x40000190) |= (1<<sda_io))
-// #define SDA_IN      ((*(volatile uint32_t *)0x40000190) &= (~(1<<sda_io)))
-// #define SCL_OUT     ((*(volatile uint32_t *)0x40000190) |= (1<<scl_io))
-// #define SCL_IN      ((*(volatile uint32_t *)0x40000190) &= (~(1<<scl_io)))
 
 #define SDA_OUT gpio_set_mode(sda_io, GPIO_OUTPUT_PP_MODE)
 #define SDA_IN gpio_set_mode(sda_io, GPIO_INPUT_MODE)
@@ -95,14 +88,12 @@ int32_t i2c_slave_init(void)
   return 0;
 }
 
-// static once_count = 0;
-
 #define BUFFER_MAX 256 //缓冲区大小
 
 typedef struct _circle_buffer
 {
-  uint8_t head_pos;                  //缓冲区头部位置
-  uint8_t tail_pos;                  //缓冲区尾部位置
+  uint8_t head_pos; //缓冲区头部位置
+  uint8_t tail_pos; //缓冲区尾部位置
 
   uint8_t circle_buffer[BUFFER_MAX]; //缓冲区数组
 } circle_buffer;
@@ -133,13 +124,7 @@ void bufferPush(const uint8_t _buf)
 
 uint32_t i2c_send_data(uint8_t send_data)
 {
-  // struct i2c_slave *slave;
-  // slave = &my_slave;
   bufferPush(send_data);
-
-  
-  // gpio_write(GPIO_PIN_17, 0);
-  // slave->dev.send_data[once_count++]=send_data;
 }
 
 int32_t i2c_slave_sda_interrupt_callback()
@@ -148,10 +133,9 @@ int32_t i2c_slave_sda_interrupt_callback()
   volatile uint8_t byte;
   struct i2c_slave *slave;
   volatile int32_t idx;
-  volatile int count ;
+  volatile int count;
   slave = &my_slave;
 
-  
   //wait scl HIGH
   if (wait_for_scl(slave, 0) == I2C_RET_END)
   {
@@ -159,18 +143,18 @@ int32_t i2c_slave_sda_interrupt_callback()
     goto end;
   }
   slave->state = I2C_STATE_START;
-  i2c_count=0;
+  i2c_count = 0;
   while (slave->state == I2C_STATE_START)
   {
     /* read address + R/W bit */
-    if(slave_byte_read(slave, &byte) != I2C_RET_OK)
-    { //发生读错误
-      goto end;   //退出
+    if (slave_byte_read(slave, &byte) != I2C_RET_OK)
+    {           //发生读错误
+      goto end; //退出
     }
 
-    idx = i2c_dev_address_check(slave, byte);//检查地址
+    idx = i2c_dev_address_check(slave, byte); //检查地址
 
-    if (idx == I2C_RET_END)   //地址错误
+    if (idx == I2C_RET_END) //地址错误
     {
       /* device address mismatch */
       goto end;
@@ -182,7 +166,7 @@ int32_t i2c_slave_sda_interrupt_callback()
 
     if (i2c_ack_send(slave) == I2C_RET_END)
     {
-      goto end;     //应答错误
+      goto end; //应答错误
     }
     /* check R/W bit */
     val = byte;
@@ -209,7 +193,7 @@ int32_t i2c_slave_sda_interrupt_callback()
       // gpio_write(GPIO_PIN_17, 0);
       if (val == I2C_RET_END)
       {
-        
+
         if (slave->state == I2C_STATE_START)
         {
           continue;
@@ -217,37 +201,31 @@ int32_t i2c_slave_sda_interrupt_callback()
         else
         {
           // gpio_write(GPIO_PIN_9, 0);
-          
+
           goto end;
         }
       }
-      else if(slave->state == I2C_STATE_STOP)
+      else if (slave->state == I2C_STATE_STOP)
       {
         i2c_flages = 1;
         break;
       }
     }
   }
-  end:
+end:
   count = 5000;
   /* wait scl and sda high */
-  while (! (i2c_scl_get() && i2c_sda_get()))
+  while (!(i2c_scl_get() && i2c_sda_get()))
   {
     //TODO:timeout check
-    if((count --) == 0)
+    if ((count--) == 0)
     {
-      goto end;
+      break;
     }
   }
   i2c_pins_init();
   slave->state = I2C_STATE_IDLE;
   return 0;
-
-// end:
-//   i2c_pins_init();
-//   slave->state = I2C_STATE_IDLE;
-//   // MSG("i receivetwo:%01x \r\n", byte);
-//   return -1;
 }
 
 static inline int32_t i2c_scl_get()
@@ -397,7 +375,7 @@ static inline int i2c_ack_send(struct i2c_slave *slave)
   i2c_sda_set(0);
   /* wait master read(scl rising edge trigger) ACK */
 
- /* wait scl to HIGH */
+  /* wait scl to HIGH */
   if (wait_for_scl(slave, 1) != I2C_RET_OK)
   {
     i2c_sda_set(1);
@@ -441,7 +419,6 @@ static inline int32_t i2c_ack_read(struct i2c_slave *slave)
       return I2C_RET_END;
     }
 
-
     temp = i2c_sda_get();
     if (!i2c_scl_get())
       break;
@@ -474,7 +451,6 @@ static inline int32_t i2c_ack_read(struct i2c_slave *slave)
   }
 }
 
-
 static inline int32_t slave_data_send(struct i2c_slave *slave)
 {
   volatile uint8_t val;
@@ -483,7 +459,6 @@ static inline int32_t slave_data_send(struct i2c_slave *slave)
   {
 
     bufferPop(&val);
-
 
     if (slave_byte_write(slave, val) == I2C_RET_END)
     {
@@ -498,9 +473,6 @@ static inline int32_t slave_data_send(struct i2c_slave *slave)
   return I2C_RET_OK;
 }
 
-
-
-
 static inline int32_t slave_data_receive(struct i2c_slave *slave)
 {
   int32_t val = 0;
@@ -511,7 +483,7 @@ static inline int32_t slave_data_receive(struct i2c_slave *slave)
     i2c_count++;
     if (slave_byte_read(slave, &byte) == I2C_RET_OK)
     {
-      
+
       if (i2c_ack_send(slave) == I2C_RET_END)
       {
         return I2C_RET_END;
@@ -519,7 +491,7 @@ static inline int32_t slave_data_receive(struct i2c_slave *slave)
       i2c_slave_store_data(slave, flag, byte);
       flag = I2C_DEV_DATA;
     }
-    else if(slave->state ==  I2C_STATE_TIMEOUT)
+    else if (slave->state == I2C_STATE_TIMEOUT)
     {
       return I2C_RET_END;
     }

@@ -37,8 +37,8 @@ uint8_t uart_rx_mem[UART_RX_RINGBUFFER_SIZE] __attribute__((section(".system_ram
 
 uint8_t src_buffer[UART_TX_DMA_SIZE] __attribute__((section(".tcm_code")));
 
-struct device* uart1;
-struct device* dma_ch2;
+struct device *uart1;
+struct device *dma_ch2;
 
 Ring_Buffer_Type usb_rx_rb;
 Ring_Buffer_Type uart1_rx_rb;
@@ -49,92 +49,31 @@ struct
     uint8_t UART_pData[256];
     uint8_t UART_RX_State;
     /* data */
-}UART_RX;
+} UART_RX;
 
 void RX_Data_Init(void)
 {
-    UART_RX.URD_Count=0;
-    UART_RX.UART_RX_State=0;
+    UART_RX.URD_Count = 0;
+    UART_RX.UART_RX_State = 0;
 
-    memset(UART_RX.UART_pData,0,256);
-    
+    memset(UART_RX.UART_pData, 0, 256);
 }
-#define io1_HIGH ((*(volatile uint32_t *)0x40000188) |= (1 << 1))
-#define io1_LOW ((*(volatile uint32_t *)0x40000188) &= (~(1 << 1)))
 
 int uart_status;
 void uart_irq_callback(struct device *dev, void *args, uint32_t size, uint32_t state)
 {
-    // io1_HIGH;
-    memcpy(UART_RX.UART_pData,(uint8_t *)args,size);
-    memset(args,0,size);
-    // gpio_write(GPIO_PIN_9, 0);
-    // if(UART_RX.UART_pData[0]==0xBB && UART_RX.UART_pData[1]==0xAA)
-    // {
-        
+
+    memcpy(UART_RX.UART_pData, (uint8_t *)args, size);
+    memset(args, 0, size);
+
     int i;
-    for(i=0;i<size;i++)
+    for (i = 0; i < size; i++)
     {
         i2c_send_data(UART_RX.UART_pData[i]);
-        
-    } 
-    // }
+    }
+
     RX_Data_Init();
-    // io1_LOW;
 }
-
-    // int i;
-    // for(i=0;i<size;i=i+11)
-    // {
-
-    //     if(UART_RX.UART_pData[i]==0xBB)
-    //     {
-    //         if(UART_RX.UART_pData[i+1]==0xAA)
-    //         {
-    //             int j;
-    //             for(j=0;j<9;j++)
-    //             {
-    //                 i2c_send_data(UART_RX.UART_pData[j+i+2]);
-    //             }
-    //         }
-    //     }
-
-
-    // }
-    // if(UART_RX.UART_pData[0]==0xBB)
-    // {
-    //     if(UART_RX.UART_pData[1]==0xAA)
-    //     {
-            
-
-    //         // for(queue_count=0;queue_count<size-2;queue_count++)
-    //         // {
-    //         //     // insert_queue(myqueue, UART_RX.UART_pData[2+queue_count]);
-    //         // }
-            
-    //         // queue_count--;
-    //         // delete_queue(myqueue);
-
-
-    //         gpio_write(GPIO_PIN_9, 0);
-    //         for(int i=0;i<9;i++)
-    //         {
-    //             // UART_RX.UART_RX_Data[i]=UART_RX.UART_pData[2+i];
-    //             i2c_send_data(UART_RX.UART_pData[2+i],i);
-    //         }
-
-    //         // Ring_Buffer_Write(&usb_rx_rb,(uint8_t *)UART_RX.UART_RX_Data, 9);
-
-    //         // i2c_Buffer_Write(*UART_RX.UART_RX_Data);
-    //         // UART_flages=1;
-    //         RX_Data_Init();
-    //         // gpio_write(GPIO_PIN_17, 0);    
-    //     }
-
-    
-        
-    
-    
 
 void uart1_init(void)
 {
@@ -154,11 +93,7 @@ void uart1_init(void)
     if (dma_ch2)
     {
         device_open(dma_ch2, 0);
-        //device_set_callback(dma_ch2, NULL);
-        //device_control(dma_ch2, DEVICE_CTRL_SET_INT, NULL);
     }
-    //device_control(uart1, DEVICE_CTRL_ATTACH_TX_DMA, dma_ch2);
-
 }
 
 void uart1_config(uint32_t baudrate, uart_databits_t databits, uart_parity_t parity, uart_stopbits_t stopbits)
@@ -188,11 +123,6 @@ void uart1_config(uint32_t baudrate, uart_databits_t databits, uart_parity_t par
     device_control(uart1, DEVICE_CTRL_CONFIG, &cfg);
 }
 
-
-
-
-
-
 void ringbuffer_lock()
 {
     disable_irq();
@@ -214,44 +144,41 @@ void uart_ringbuffer_init(void)
 }
 
 static dma_control_data_t uart_dma_ctrl_cfg =
-{
-    .bits.fix_cnt = 0,
-    .bits.dst_min_mode = 0,
-    .bits.dst_add_mode = 0,
-    .bits.SI = 1,
-    .bits.DI = 0,
-    .bits.SWidth = DMA_TRANSFER_WIDTH_8BIT,
-    .bits.DWidth = DMA_TRANSFER_WIDTH_8BIT,
-    .bits.SBSize = 0,
-    .bits.DBSize = 0,
-    .bits.I = 0,
-    .bits.TransferSize = 4095
-};
-static dma_lli_ctrl_t uart_lli_list = 
-{
-    .src_addr = (uint32_t)src_buffer,
-    .dst_addr = DMA_ADDR_UART1_TDR,
-    .nextlli = 0
-};
+    {
+        .bits.fix_cnt = 0,
+        .bits.dst_min_mode = 0,
+        .bits.dst_add_mode = 0,
+        .bits.SI = 1,
+        .bits.DI = 0,
+        .bits.SWidth = DMA_TRANSFER_WIDTH_8BIT,
+        .bits.DWidth = DMA_TRANSFER_WIDTH_8BIT,
+        .bits.SBSize = 0,
+        .bits.DBSize = 0,
+        .bits.I = 0,
+        .bits.TransferSize = 4095};
+static dma_lli_ctrl_t uart_lli_list =
+    {
+        .src_addr = (uint32_t)src_buffer,
+        .dst_addr = DMA_ADDR_UART1_TDR,
+        .nextlli = 0};
 
 extern void led_toggle(uint8_t idx);
 void uart_send_from_ringbuffer(void)
 {
-    if(Ring_Buffer_Get_Length(&usb_rx_rb))
+    if (Ring_Buffer_Get_Length(&usb_rx_rb))
     {
         if (!device_control(dma_ch2, DMA_CHANNEL_GET_STATUS, NULL))
         {
             uint32_t avalibleCnt = Ring_Buffer_Read(&usb_rx_rb, src_buffer, UART_TX_DMA_SIZE);
-            
+
             if (avalibleCnt)
             {
                 dma_channel_stop(dma_ch2);
                 uart_dma_ctrl_cfg.bits.TransferSize = avalibleCnt;
                 memcpy(&uart_lli_list.cfg, &uart_dma_ctrl_cfg, sizeof(dma_control_data_t));
-                device_control(dma_ch2,DMA_CHANNEL_UPDATE,(void*)((uint32_t)&uart_lli_list));
+                device_control(dma_ch2, DMA_CHANNEL_UPDATE, (void *)((uint32_t)&uart_lli_list));
                 dma_channel_start(dma_ch2);
             }
         }
     }
 }
-

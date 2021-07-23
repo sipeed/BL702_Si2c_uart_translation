@@ -28,36 +28,27 @@
 
 #include "uart_interface.h"
 
-
-#define sda_io GPIO_PIN_0 
+#define sda_io GPIO_PIN_0
 #define scl_io GPIO_PIN_15
-// #define send_MAX    10
-// #define receive_MAX 10
 
-// #define addrr 0x14
+#define io1_HIGH ((*(volatile uint32_t *)0x40000188) |= (1 << 1))
+#define io1_LOW ((*(volatile uint32_t *)0x40000188) &= (~(1 << 1)))
 
+#define SDA_HIGH ((*(volatile uint32_t *)0x40000188) |= (1 << sda_io))
+#define SDA_LOW ((*(volatile uint32_t *)0x40000188) &= (~(1 << sda_io)))
+#define SCL_HIGH ((*(volatile uint32_t *)0x40000188) |= (1 << scl_io))
+#define SCL_LOW ((*(volatile uint32_t *)0x40000188) &= (~(1 << scl_io)))
 
-#define io1_HIGH    ((*(volatile uint32_t *)0x40000188) |= (1<<1))
-#define io1_LOW     ((*(volatile uint32_t *)0x40000188) &= (~(1<<1)))
+#define SDA_da ((*(volatile uint32_t *)0x40000180) & 1)
+#define SCL_da ((*(volatile uint32_t *)0x40000180) & 1 << 15)
 
-#define SDA_HIGH    ((*(volatile uint32_t *)0x40000188) |= (1<<sda_io))
-#define SDA_LOW     ((*(volatile uint32_t *)0x40000188) &= (~(1<<sda_io)))
-#define SCL_HIGH    ((*(volatile uint32_t *)0x40000188) |= (1<<scl_io))
-#define SCL_LOW     ((*(volatile uint32_t *)0x40000188) &= (~(1<<scl_io)))
+#define SDA_INPUT SDA_da
 
-#define SDA_da      ((*(volatile uint32_t *)0x40000180) & 1)
-#define SCL_da      ((*(volatile uint32_t *)0x40000180) & 1 << 15)
-
-//#define SDA_INPUT   ((*(volatile uint32_t *)0x40000180) & 1)
-#define SDA_INPUT   SDA_da
-
-// #define SCL_INPUT   ((*(volatile uint32_t *)0x40000180) & 1 << 15)
-#define SCL_INPUT   SCL_da >> 15
+#define SCL_INPUT SCL_da >> 15
 
 int i2c_flages;
 int i2c_count;
 
-//    pOut=(uint32_t *)(0x40000180);
 int main(void)
 {
 
@@ -67,58 +58,34 @@ int main(void)
 
     uart_ringbuffer_init();
     uart1_init();
-    uart1_config(115200,8,UART_PAR_NONE,UART_STOP_ONE);
+    uart1_config(115200, 8, UART_PAR_NONE, UART_STOP_ONE);
     RX_Data_Init();
 
     i2c_slave_init();
 
+    uint8_t TX_AABB[200] = {0};
 
-
-    gpio_set_mode(GPIO_PIN_1,GPIO_OUTPUT_PP_MODE);
-    // gpio_set_mode(GPIO_PIN_9,GPIO_OUTPUT_PP_MODE);
-    // gpio_set_mode(GPIO_PIN_17,GPIO_OUTPUT_PP_MODE);
-
-    // gpio_write(GPIO_PIN_9, 1);
-    // gpio_write(GPIO_PIN_17, 1);
-
-    uint8_t TX_AABB[200]={0};
-
-    for(;;)
+    for (;;)
     {
         uart_send_from_ringbuffer();
         disable_irq();
-        if(SDA_INPUT == 0) i2c_slave_sda_interrupt_callback();
+        if (SDA_INPUT == 0)
+            i2c_slave_sda_interrupt_callback();
         enable_irq();
-        
-        if(i2c_flages == 1)
+
+        if (i2c_flages == 1)
         {
-            // io1_HIGH;
-            // uint8_t TX_AABB[4]={0xAA,0xBB,0,0};
-            // TX_AABB[2]=my_slave.dev.data[0];
-            // TX_AABB[3]=my_slave.dev.data[1];
-            // Ring_Buffer_Write(&usb_rx_rb,(uint8_t *)TX_AABB, 4);
 
-            // i2c_flages = 0;
-
-
-
-            // TX_AABB[0]=0xAA;
-            // TX_AABB[1]=0xBB;
-            
-            for(int i=0;i<i2c_count;i++)
+            for (int i = 0; i < i2c_count; i++)
             {
-                TX_AABB[i]=my_slave.dev.data[i];
+                TX_AABB[i] = my_slave.dev.data[i];
             }
 
-            Ring_Buffer_Write(&usb_rx_rb,(uint8_t *)TX_AABB, i2c_count);
-            
-            memset(TX_AABB,0,200);
+            Ring_Buffer_Write(&usb_rx_rb, (uint8_t *)TX_AABB, i2c_count);
+
+            memset(TX_AABB, 0, 200);
 
             i2c_flages = 0;
-            
-            // io1_LOW;
         }
-        
     }
-
 }
