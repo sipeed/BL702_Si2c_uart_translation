@@ -97,7 +97,7 @@ int32_t i2c_slave_init(void)
 
 // static once_count = 0;
 
-#define BUFFER_MAX 2560 //缓冲区大小
+#define BUFFER_MAX 256 //缓冲区大小
 
 typedef struct _circle_buffer
 {
@@ -136,10 +136,7 @@ uint32_t i2c_send_data(uint8_t send_data)
   // struct i2c_slave *slave;
   // slave = &my_slave;
   bufferPush(send_data);
-  if(send_data!=0)
-  {
-    gpio_write(GPIO_PIN_17, 0);
-  }
+
   
   // gpio_write(GPIO_PIN_17, 0);
   // slave->dev.send_data[once_count++]=send_data;
@@ -487,10 +484,6 @@ static inline int32_t slave_data_send(struct i2c_slave *slave)
 
     bufferPop(&val);
 
-    if(val!=0)
-    {
-      gpio_write(GPIO_PIN_17, 0);
-    }
 
     if (slave_byte_write(slave, val) == I2C_RET_END)
     {

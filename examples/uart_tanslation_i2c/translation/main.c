@@ -74,12 +74,12 @@ int main(void)
 
 
 
-    gpio_set_mode(GPIO_PIN_1,GPIO_OUTPUT_PP_MODE);
-    gpio_set_mode(GPIO_PIN_9,GPIO_OUTPUT_PP_MODE);
-    gpio_set_mode(GPIO_PIN_17,GPIO_OUTPUT_PP_MODE);
+    // gpio_set_mode(GPIO_PIN_1,GPIO_OUTPUT_PP_MODE);
+    // gpio_set_mode(GPIO_PIN_9,GPIO_OUTPUT_PP_MODE);
+    // gpio_set_mode(GPIO_PIN_17,GPIO_OUTPUT_PP_MODE);
 
-    gpio_write(GPIO_PIN_9, 1);
-    gpio_write(GPIO_PIN_17, 1);
+    // gpio_write(GPIO_PIN_9, 1);
+    // gpio_write(GPIO_PIN_17, 1);
 
     uint8_t TX_AABB[200]={0};
 
@@ -99,15 +99,15 @@ int main(void)
 
 
 
-            TX_AABB[0]=0xAA;
-            TX_AABB[1]=0xBB;
+            // TX_AABB[0]=0xAA;
+            // TX_AABB[1]=0xBB;
             
             for(int i=0;i<i2c_count;i++)
             {
-                TX_AABB[2+i]=my_slave.dev.data[i];
+                TX_AABB[i]=my_slave.dev.data[i];
             }
 
-            Ring_Buffer_Write(&usb_rx_rb,(uint8_t *)TX_AABB, 2+i2c_count);
+            Ring_Buffer_Write(&usb_rx_rb,(uint8_t *)TX_AABB, i2c_count);
             
             memset(TX_AABB,0,200);
 
