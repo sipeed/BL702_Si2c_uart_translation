@@ -65,7 +65,7 @@ void RX_Data_Init(void)
 int uart_status;
 void uart_irq_callback(struct device *dev, void *args, uint32_t size, uint32_t state)
 {
-    io1_HIGH;
+    // io1_HIGH;
     memcpy(UART_RX.UART_pData,(uint8_t *)args,size);
     memset(args,0,size);
     // gpio_write(GPIO_PIN_9, 0);
@@ -80,7 +80,7 @@ void uart_irq_callback(struct device *dev, void *args, uint32_t size, uint32_t s
     } 
     // }
     RX_Data_Init();
-    io1_LOW;
+    // io1_LOW;
 }
 
     // int i;
