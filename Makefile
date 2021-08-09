@@ -1,7 +1,7 @@
 BOARD?=bl702_debugger
 CHIP?=bl702
 APP_DIR?=examples
-APP?=translation
+APP?=ef_translation
 CPU_ID?=m0
 
 SUPPORT_SHELL?=n
