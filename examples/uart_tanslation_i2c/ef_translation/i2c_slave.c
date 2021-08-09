@@ -51,6 +51,10 @@
 #define I2C_DEV_OFFS 0x0
 #define I2C_DEV_DATA 0x1
 
+#define A_Status 0
+#define B_Status 1
+
+
 static inline int32_t slave_data_receive(struct i2c_slave *slave) __attribute__((optimize(gcc_good)));
 static inline int32_t slave_data_send(struct i2c_slave *slave) __attribute__((optimize(gcc_good)));
 static inline int slave_byte_read(struct i2c_slave *slave, uint8_t *data) __attribute__((optimize(gcc_good)));
@@ -71,60 +75,115 @@ struct i2c_slave my_slave;
 
 int32_t i2c_slave_init(void)
 {
-  uint32_t i, j;
+  // uint32_t i, j;
   struct i2c_slave *slave;
-
   slave = &my_slave;
 
   slave->dev.addr = i2c_slave_addr;
 
-  slave->dev.data_offs = 0;
+  // slave->dev.data_offs = 0;
 
-  for (i = 0; i < sizeof(slave->dev.data); i++)
-  {
-    slave->dev.data[i] = 0;
-  }
+  // for (i = 0; i < sizeof(slave->dev.data); i++)
+  // {
+  //   slave->dev.data[i] = 0;
+  // }
+
+  slave->Data.AorB_Status=A_Status;
+  memset(slave->Data.A_Data,0,256);
+  memset(slave->Data.B_Data,0,256);
+  
   i2c_pins_init();
   return 0;
 }
 
-#define BUFFER_MAX 256 //缓冲区大小
+// #define BUFFER_MAX 256 //缓冲区大小
 
-typedef struct _circle_buffer
+// typedef struct _circle_buffer
+// {
+//   uint8_t head_pos; //缓冲区头部位置
+//   uint8_t tail_pos; //缓冲区尾部位置
+
+//   uint8_t circle_buffer[BUFFER_MAX]; //缓冲区数组
+// } circle_buffer;
+
+// circle_buffer buffer;
+
+// void bufferPop(uint8_t *_buf)
+// {
+//   if (buffer.head_pos == buffer.tail_pos) //如果头尾接触表示缓冲区为空
+//     *_buf = 0x00;
+//   else
+//   {
+//     *_buf = buffer.circle_buffer[buffer.head_pos]; //如果缓冲区非空则取头节点值并偏移头节点
+//     if (++buffer.head_pos >= BUFFER_MAX)
+//       buffer.head_pos = 0;
+//   }
+// }
+
+// void bufferPush(const uint8_t _buf)
+// {
+//   buffer.circle_buffer[buffer.tail_pos] = _buf; //从尾部追加
+//   if (++buffer.tail_pos >= BUFFER_MAX)          //尾节点偏移
+//     buffer.tail_pos = 0;                        //大于数组最大长度 制零 形成环形队列
+//   if (buffer.tail_pos == buffer.head_pos)       //如果尾部节点追到头部节点 则修改头节点偏移位置丢弃早期数据
+//     if (++buffer.head_pos >= BUFFER_MAX)
+//       buffer.head_pos = 0;
+// }
+
+
+uint32_t i2c_send_data(uint8_t send_data,uint8_t offs)
 {
-  uint8_t head_pos; //缓冲区头部位置
-  uint8_t tail_pos; //缓冲区尾部位置
+  struct i2c_slave *slave;
+  slave = &my_slave;
 
-  uint8_t circle_buffer[BUFFER_MAX]; //缓冲区数组
-} circle_buffer;
-
-circle_buffer buffer;
-
-void bufferPop(uint8_t *_buf)
-{
-  if (buffer.head_pos == buffer.tail_pos) //如果头尾接触表示缓冲区为空
-    *_buf = 0x00;
-  else
+  if(slave->Data.AorB_Status)             //B_Status
   {
-    *_buf = buffer.circle_buffer[buffer.head_pos]; //如果缓冲区非空则取头节点值并偏移头节点
-    if (++buffer.head_pos >= BUFFER_MAX)
-      buffer.head_pos = 0;
+    slave->Data.A_Data[offs]=send_data;
   }
+  else                                    //A_Status
+  {
+    slave->Data.B_Data[offs]=send_data;
+  }
+  // bufferPush(send_data);
+  return 0;
 }
 
-void bufferPush(const uint8_t _buf)
+uint32_t i2c_send_status_Flip(void)
 {
-  buffer.circle_buffer[buffer.tail_pos] = _buf; //从尾部追加
-  if (++buffer.tail_pos >= BUFFER_MAX)          //尾节点偏移
-    buffer.tail_pos = 0;                        //大于数组最大长度 制零 形成环形队列
-  if (buffer.tail_pos == buffer.head_pos)       //如果尾部节点追到头部节点 则修改头节点偏移位置丢弃早期数据
-    if (++buffer.head_pos >= BUFFER_MAX)
-      buffer.head_pos = 0;
+  struct i2c_slave *slave;
+  slave = &my_slave;
+
+  if(slave->Data.AorB_Status)             //B_Status
+  {
+    slave->Data.AorB_Status=A_Status;
+    memset(slave->Data.B_Data,0,256);
+  }
+  else                                    //A_Status
+  {
+    slave->Data.AorB_Status=B_Status;
+    memset(slave->Data.A_Data,0,256);
+  }
+
+  return 0;
 }
 
-uint32_t i2c_send_data(uint8_t send_data)
+void bufferPop(uint8_t *_buf,uint8_t i)
 {
-  bufferPush(send_data);
+  struct i2c_slave *slave;
+  slave = &my_slave;
+
+  if(slave->Data.AorB_Status)             //B_Status
+  {
+    *_buf=slave->Data.B_Data[i];
+    slave->Data.B_Data[i]=0;
+  }
+  else                                    //A_Status
+  {
+    *_buf=slave->Data.A_Data[i];
+    slave->Data.A_Data[i]=0;
+  }
+
+  return 0;
 }
 
 int32_t i2c_slave_sda_interrupt_callback()
@@ -185,6 +244,7 @@ int32_t i2c_slave_sda_interrupt_callback()
           goto end;
         }
       }
+      i2c_send_status_Flip();
     }
     else
     {
@@ -450,18 +510,18 @@ static inline int32_t i2c_ack_read(struct i2c_slave *slave)
 static inline int32_t slave_data_send(struct i2c_slave *slave)
 {
   volatile uint8_t val;
-
+  int offs=0;
   do
   {
 
-    bufferPop(&val);
+    bufferPop(&val,offs++);
 
     if (slave_byte_write(slave, val) == I2C_RET_END)
     {
       return I2C_RET_END;
     }
   } while (i2c_ack_read(slave) == I2C_RET_OK);
-
+  
   // once_count = 0;
   // memset(slave->dev.send_data, 0, 256);
   // slave->dev.data_offs = 0;

@@ -21,17 +21,26 @@ struct i2c_device
    * changed flag, write protect.ect.. */
 };
 
+struct I2c_Data
+{
+  uint8_t A_Data[256];
+  uint8_t B_Data[256];
+  uint8_t AorB_Status;
+};
+
 struct i2c_slave
 {
   int32_t state;
   struct i2c_device dev;
+  struct I2c_Data Data;
 };
 
 
 
 int32_t i2c_slave_init(void);
 int32_t i2c_slave_sda_interrupt_callback() __attribute__((optimize(gcc_good)));
-uint32_t i2c_send_data(uint8_t send_data) __attribute__((optimize(gcc_good)));
+uint32_t i2c_send_data(uint8_t send_data,uint8_t offs) __attribute__((optimize(gcc_good)));
+uint32_t i2c_send_status_Flip(void) __attribute__((optimize(gcc_good)));
 extern struct i2c_slave my_slave;
 
 

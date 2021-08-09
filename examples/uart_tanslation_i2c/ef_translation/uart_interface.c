@@ -69,8 +69,10 @@ void uart_irq_callback(struct device *dev, void *args, uint32_t size, uint32_t s
     int i;
     for (i = 0; i < size; i++)
     {
-        i2c_send_data(UART_RX.UART_pData[i]);
+        i2c_send_data(UART_RX.UART_pData[i],i);
     }
+
+    // i2c_send_status_Flip();
 
     RX_Data_Init();
 }

@@ -57,12 +57,21 @@ int main(void)
     bflb_platform_init(0);
     uart_ringbuffer_init();
     uart1_init();
-    uart1_config(115200, 8, UART_PAR_NONE, UART_STOP_ONE);
+    uart1_config(20000, 8, UART_PAR_NONE, UART_STOP_ONE);
     RX_Data_Init();
 
     i2c_slave_init();
 
     uint8_t TX_AABB[200] = {0};
+
+    gpio_set_mode(GPIO_PIN_9,GPIO_OUTPUT_PP_MODE);
+    gpio_set_mode(GPIO_PIN_17,GPIO_OUTPUT_PP_MODE);
+
+    gpio_write(GPIO_PIN_9, 1);
+    gpio_write(GPIO_PIN_17, 1);
+
+    struct i2c_slave *slave;
+    slave = &my_slave;
 
     for (;;)
     {
@@ -85,6 +94,17 @@ int main(void)
             memset(TX_AABB, 0, 200);
 
             i2c_flages = 0;
+        }
+
+        if(slave->Data.AorB_Status)             //B_Status
+        {
+            gpio_write(GPIO_PIN_9, 0);
+            gpio_write(GPIO_PIN_17, 1);
+        }
+        else
+        {
+            gpio_write(GPIO_PIN_9, 1);
+            gpio_write(GPIO_PIN_17, 0);
         }
     }
 }
