@@ -55,6 +55,11 @@
 #define B_Status 1
 
 
+#define STC_OK    1
+#define STC_WAIT  0
+
+
+
 static inline int32_t slave_data_receive(struct i2c_slave *slave) __attribute__((optimize(gcc_good)));
 static inline int32_t slave_data_send(struct i2c_slave *slave) __attribute__((optimize(gcc_good)));
 static inline int slave_byte_read(struct i2c_slave *slave, uint8_t *data) __attribute__((optimize(gcc_good)));
@@ -89,12 +94,22 @@ int32_t i2c_slave_init(void)
   // }
 
   slave->Data.AorB_Status=A_Status;
+  slave->Data.STC_A=STC_WAIT;
+  slave->Data.STC_B=STC_WAIT;
+  
   memset(slave->Data.A_Data,0,256);
   memset(slave->Data.B_Data,0,256);
+  slave->Data.A_head_count=0;
+  slave->Data.A_end_count=0;
+  slave->Data.B_head_count=0;
+  slave->Data.B_end_count=0;
+
+  
   
   i2c_pins_init();
   return 0;
 }
+
 
 // #define BUFFER_MAX 256 //缓冲区大小
 
@@ -138,13 +153,29 @@ uint32_t i2c_send_data(uint8_t send_data,uint8_t offs)
 
   if(slave->Data.AorB_Status)             //B_Status
   {
-    slave->Data.A_Data[offs]=send_data;
+    if(slave->Data.STC_A==STC_WAIT)
+    {
+      slave->Data.A_Data[slave->Data.A_end_count]=send_data;
+      slave->Data.A_end_count++;
+    }
+    else
+    {
+      return 0;
+    }
   }
   else                                    //A_Status
   {
-    slave->Data.B_Data[offs]=send_data;
+    if(slave->Data.STC_B==STC_WAIT)
+    {
+      slave->Data.B_Data[slave->Data.A_end_count]=send_data;
+      slave->Data.B_end_count++;
+    }
+    else
+    {
+      return 0;
+    }
   }
-  // bufferPush(send_data);
+
   return 0;
 }
 
@@ -157,11 +188,15 @@ uint32_t i2c_send_status_Flip(void)
   {
     slave->Data.AorB_Status=A_Status;
     memset(slave->Data.B_Data,0,256);
+    slave->Data.B_head_count=0;
+    slave->Data.B_end_count=0;
   }
   else                                    //A_Status
   {
     slave->Data.AorB_Status=B_Status;
     memset(slave->Data.A_Data,0,256);
+    slave->Data.A_head_count=0;
+    slave->Data.A_end_count=0;
   }
 
   return 0;
@@ -174,13 +209,59 @@ void bufferPop(uint8_t *_buf,uint8_t i)
 
   if(slave->Data.AorB_Status)             //B_Status
   {
-    *_buf=slave->Data.B_Data[i];
-    slave->Data.B_Data[i]=0;
+    if(slave->Data.STC_B==STC_OK)
+    {
+      if(slave->Data.B_head_count>=slave->Data.B_end_count)
+      {
+        *_buf=0;
+      }
+      else
+      {
+        *_buf=slave->Data.B_Data[slave->Data.B_head_count];
+        slave->Data.B_head_count++;
+      }
+    }
+    else
+    {
+      *_buf=0;
+    }
   }
   else                                    //A_Status
   {
-    *_buf=slave->Data.A_Data[i];
-    slave->Data.A_Data[i]=0;
+    if(slave->Data.STC_A==STC_OK)
+    {
+      if(slave->Data.A_head_count>=slave->Data.A_end_count)
+      {
+        *_buf=0;
+      }
+      else
+      {
+        *_buf=slave->Data.A_Data[slave->Data.A_head_count];
+        slave->Data.A_head_count++;
+      }
+    }
+    else
+    {
+      *_buf=0;
+    }
+  }
+
+  return 0;
+}
+
+
+uint32_t STC_GET(void)
+{
+  struct i2c_slave *slave;
+  slave = &my_slave;
+
+  if(slave->Data.AorB_Status)             //B_Status
+  {
+    slave->Data.STC_A=STC_OK;
+  }
+  else                                    //A_Status
+  {
+    slave->Data.STC_B=STC_OK;
   }
 
   return 0;
@@ -232,6 +313,23 @@ int32_t i2c_slave_sda_interrupt_callback()
     {
       //TODO: bug.master can read data without pre-send device data offset
       val = slave_data_send(slave);
+      if(slave->Data.B_head_count>=slave->Data.B_end_count)
+      {
+        if(slave->Data.AorB_Status)             //B_Status
+        {
+          if(slave->Data.STC_A==STC_OK)
+          {
+            i2c_send_status_Flip();
+          }
+        }
+        else                                   //A_Status
+        {
+          if(slave->Data.STC_B==STC_OK)
+          {
+            i2c_send_status_Flip();
+          }
+        }
+      }
       if (val == I2C_RET_END)
       {
         if (slave->state == I2C_STATE_START)
@@ -244,7 +342,7 @@ int32_t i2c_slave_sda_interrupt_callback()
           goto end;
         }
       }
-      i2c_send_status_Flip();
+      
     }
     else
     {

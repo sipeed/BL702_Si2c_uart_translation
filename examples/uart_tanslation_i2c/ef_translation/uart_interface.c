@@ -46,7 +46,7 @@ Ring_Buffer_Type uart1_rx_rb;
 struct
 {
     uint8_t URD_Count;
-    uint8_t UART_pData[256];
+    char UART_pData[256];
     uint8_t UART_RX_State;
     /* data */
 } UART_RX;
@@ -63,14 +63,31 @@ int uart_status;
 void uart_irq_callback(struct device *dev, void *args, uint32_t size, uint32_t state)
 {
 
-    memcpy(UART_RX.UART_pData, (uint8_t *)args, size);
+    memcpy(UART_RX.UART_pData, (char *)args, size);
     memset(args, 0, size);
-
-    int i;
-    for (i = 0; i < size; i++)
+    char ST1='S',ST2='T',ST3='C';
+    if(UART_RX.UART_pData[0]==ST1 && UART_RX.UART_pData[1]==ST2)
     {
-        i2c_send_data(UART_RX.UART_pData[i],i);
+        if(UART_RX.UART_pData[2]==ST3)
+        {
+            STC_GET();
+        }
+        else
+        {
+            int i;
+            for (i = 3; i < size; i++)
+            {
+                i2c_send_data(UART_RX.UART_pData[i],i-3);
+            }
+        }
+        
     }
+
+    // int i;
+    // for (i = 0; i < size; i++)
+    // {
+    //     i2c_send_data(UART_RX.UART_pData[i],i);
+    // }
 
     // i2c_send_status_Flip();
 
