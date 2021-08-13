@@ -58,6 +58,9 @@
 #define STC_OK    1
 #define STC_WAIT  0
 
+#define FIFO_Open  1
+#define FIFO_Close 0
+
 
 
 static inline int32_t slave_data_receive(struct i2c_slave *slave) __attribute__((optimize(gcc_good)));
@@ -80,18 +83,11 @@ struct i2c_slave my_slave;
 
 int32_t i2c_slave_init(void)
 {
-  // uint32_t i, j;
+
   struct i2c_slave *slave;
   slave = &my_slave;
 
   slave->dev.addr = i2c_slave_addr;
-
-  // slave->dev.data_offs = 0;
-
-  // for (i = 0; i < sizeof(slave->dev.data); i++)
-  // {
-  //   slave->dev.data[i] = 0;
-  // }
 
   slave->Data.AorB_Status=A_Status;
   slave->Data.STC_A=STC_WAIT;
@@ -111,68 +107,93 @@ int32_t i2c_slave_init(void)
 }
 
 
-// #define BUFFER_MAX 256 //缓冲区大小
-
-// typedef struct _circle_buffer
-// {
-//   uint8_t head_pos; //缓冲区头部位置
-//   uint8_t tail_pos; //缓冲区尾部位置
-
-//   uint8_t circle_buffer[BUFFER_MAX]; //缓冲区数组
-// } circle_buffer;
-
-// circle_buffer buffer;
-
-// void bufferPop(uint8_t *_buf)
-// {
-//   if (buffer.head_pos == buffer.tail_pos) //如果头尾接触表示缓冲区为空
-//     *_buf = 0x00;
-//   else
-//   {
-//     *_buf = buffer.circle_buffer[buffer.head_pos]; //如果缓冲区非空则取头节点值并偏移头节点
-//     if (++buffer.head_pos >= BUFFER_MAX)
-//       buffer.head_pos = 0;
-//   }
-// }
-
-// void bufferPush(const uint8_t _buf)
-// {
-//   buffer.circle_buffer[buffer.tail_pos] = _buf; //从尾部追加
-//   if (++buffer.tail_pos >= BUFFER_MAX)          //尾节点偏移
-//     buffer.tail_pos = 0;                        //大于数组最大长度 制零 形成环形队列
-//   if (buffer.tail_pos == buffer.head_pos)       //如果尾部节点追到头部节点 则修改头节点偏移位置丢弃早期数据
-//     if (++buffer.head_pos >= BUFFER_MAX)
-//       buffer.head_pos = 0;
-// }
-
-
-uint32_t i2c_send_data(uint8_t send_data,uint8_t offs)
+uint32_t i2c_send_data(uint8_t send_data , uint8_t send_count , uint8_t send_statu)
 {
   struct i2c_slave *slave;
   slave = &my_slave;
-
+  
   if(slave->Data.AorB_Status)             //B_Status
   {
-    if(slave->Data.STC_A==STC_WAIT)
+    if(send_statu)
     {
+      if(send_count==4)
+      {
+        slave->Data.A_head_count=0;
+      }
+      if((send_count-4)%13==0)
+      {
+        slave->Data.A_end_count=9*((send_count-4)/13);
+      }
       slave->Data.A_Data[slave->Data.A_end_count]=send_data;
       slave->Data.A_end_count++;
     }
     else
     {
-      return 0;
+      slave->Data.A_Data[slave->Data.A_end_count]=send_data;
+      slave->Data.A_end_count++;
+      
+      if(slave->Data.A_end_count>=255)
+      {
+        slave->Data.A_end_count=0;
+        slave->Data.A_FIFO=FIFO_Open;
+      }
+      if(slave->Data.A_FIFO)
+      {
+        if(slave->Data.A_end_count==slave->Data.A_head_count)
+        {
+          
+          if(slave->Data.A_head_count>=255)
+          {
+            slave->Data.A_head_count=0;
+          }
+          else
+          {
+            slave->Data.A_head_count++;
+          }
+        }
+      }
     }
   }
   else                                    //A_Status
   {
-    if(slave->Data.STC_B==STC_WAIT)
+    if(send_statu)
     {
-      slave->Data.B_Data[slave->Data.A_end_count]=send_data;
+      if(send_count==4)
+      {
+        slave->Data.B_head_count=0;
+      }
+      if((send_count-4)%13==0)
+      {
+        slave->Data.B_end_count=9*((send_count-4)/13);
+      }
+      slave->Data.B_Data[slave->Data.B_end_count]=send_data;
       slave->Data.B_end_count++;
     }
     else
     {
-      return 0;
+      slave->Data.B_Data[slave->Data.B_end_count]=send_data;
+      slave->Data.B_end_count++;
+      
+      if(slave->Data.B_end_count>=255)
+      {
+        slave->Data.B_end_count=0;
+        slave->Data.B_FIFO=FIFO_Open;
+      }
+      if(slave->Data.B_FIFO)
+      {
+        if(slave->Data.B_end_count==slave->Data.B_head_count)
+        {
+          
+          if(slave->Data.B_head_count>=255)
+          {
+            slave->Data.B_head_count=0;
+          }
+          else
+          {
+            slave->Data.B_head_count++;
+          }
+        }
+      }
     }
   }
 
@@ -184,12 +205,16 @@ uint32_t i2c_send_status_Flip(void)
   struct i2c_slave *slave;
   slave = &my_slave;
 
+
+
   if(slave->Data.AorB_Status)             //B_Status
   {
     slave->Data.AorB_Status=A_Status;
     memset(slave->Data.B_Data,0,256);
     slave->Data.B_head_count=0;
     slave->Data.B_end_count=0;
+    slave->Data.STC_B=STC_WAIT;
+    slave->Data.B_FIFO=FIFO_Close;
   }
   else                                    //A_Status
   {
@@ -197,28 +222,36 @@ uint32_t i2c_send_status_Flip(void)
     memset(slave->Data.A_Data,0,256);
     slave->Data.A_head_count=0;
     slave->Data.A_end_count=0;
+    slave->Data.STC_A=STC_WAIT;
+    slave->Data.A_FIFO=FIFO_Close;
   }
 
   return 0;
 }
 
-void bufferPop(uint8_t *_buf,uint8_t i)
+void bufferPop(uint8_t *_buf)
 {
   struct i2c_slave *slave;
   slave = &my_slave;
 
   if(slave->Data.AorB_Status)             //B_Status
   {
+    
     if(slave->Data.STC_B==STC_OK)
     {
-      if(slave->Data.B_head_count>=slave->Data.B_end_count)
-      {
-        *_buf=0;
-      }
-      else
+      if(slave->Data.B_head_count!=slave->Data.B_end_count)
       {
         *_buf=slave->Data.B_Data[slave->Data.B_head_count];
         slave->Data.B_head_count++;
+        if(slave->Data.B_head_count>=255)
+        {
+          slave->Data.B_head_count=0;
+        }
+        
+      }
+      else
+      {
+        *_buf=0;
       }
     }
     else
@@ -228,16 +261,22 @@ void bufferPop(uint8_t *_buf,uint8_t i)
   }
   else                                    //A_Status
   {
+    
     if(slave->Data.STC_A==STC_OK)
     {
-      if(slave->Data.A_head_count>=slave->Data.A_end_count)
+      if(slave->Data.A_head_count!=slave->Data.A_end_count)
       {
-        *_buf=0;
+        
+        *_buf=slave->Data.A_Data[slave->Data.A_head_count];
+        slave->Data.A_head_count++;
+        if(slave->Data.A_head_count>=255)
+        {
+          slave->Data.A_head_count=0;
+        }
       }
       else
       {
-        *_buf=slave->Data.A_Data[slave->Data.A_head_count];
-        slave->Data.A_head_count++;
+        *_buf=0;
       }
     }
     else
@@ -313,23 +352,29 @@ int32_t i2c_slave_sda_interrupt_callback()
     {
       //TODO: bug.master can read data without pre-send device data offset
       val = slave_data_send(slave);
-      if(slave->Data.B_head_count>=slave->Data.B_end_count)
+      if(slave->Data.AorB_Status)             //B_Status
       {
-        if(slave->Data.AorB_Status)             //B_Status
+        if(slave->Data.B_head_count>=slave->Data.B_end_count)
         {
           if(slave->Data.STC_A==STC_OK)
           {
-            i2c_send_status_Flip();
-          }
-        }
-        else                                   //A_Status
-        {
-          if(slave->Data.STC_B==STC_OK)
-          {
+            // gpio_write(GPIO_PIN_17, 0);
             i2c_send_status_Flip();
           }
         }
       }
+      else                                   //A_Status
+      {
+        if(slave->Data.A_head_count>=slave->Data.A_end_count)
+        {
+          if(slave->Data.STC_B==STC_OK)
+          {
+            // gpio_write(GPIO_PIN_9, 0);
+            i2c_send_status_Flip();
+          }
+        }
+      }
+      
       if (val == I2C_RET_END)
       {
         if (slave->state == I2C_STATE_START)
@@ -608,11 +653,11 @@ static inline int32_t i2c_ack_read(struct i2c_slave *slave)
 static inline int32_t slave_data_send(struct i2c_slave *slave)
 {
   volatile uint8_t val;
-  int offs=0;
+  
   do
   {
 
-    bufferPop(&val,offs++);
+    bufferPop(&val);
 
     if (slave_byte_write(slave, val) == I2C_RET_END)
     {

@@ -28,6 +28,10 @@
 #include "i2c_slave.h"
 // #include "io_cfg.h"
 
+#define ATS_Statu 1
+#define Pass_Through_Statu 0
+
+
 #define USB_OUT_RINGBUFFER_SIZE (8 * 1024)
 #define UART_RX_RINGBUFFER_SIZE (8 * 1024)
 #define UART_TX_DMA_SIZE (4095)
@@ -46,8 +50,10 @@ Ring_Buffer_Type uart1_rx_rb;
 struct
 {
     uint8_t URD_Count;
-    char UART_pData[256];
+    uint8_t UART_pData[256];
     uint8_t UART_RX_State;
+    uint8_t UART_should;
+    
     /* data */
 } UART_RX;
 
@@ -55,43 +61,105 @@ void RX_Data_Init(void)
 {
     UART_RX.URD_Count = 0;
     UART_RX.UART_RX_State = 0;
+    UART_RX.UART_should = 0;
+    
 
     memset(UART_RX.UART_pData, 0, 256);
 }
 
+void RX_Data_clean(void)
+{
+    UART_RX.URD_Count = 0;
+    UART_RX.UART_RX_State = 0;
+    
+
+    memset(UART_RX.UART_pData, 0, 256);
+}
+
+
+
 int uart_status;
-void uart_irq_callback(struct device *dev, void *args, uint32_t size, uint32_t state)
+int uart_irq_callback(struct device *dev, void *args, uint32_t size, uint32_t state)
 {
 
-    memcpy(UART_RX.UART_pData, (char *)args, size);
+    memcpy(UART_RX.UART_pData, (uint8_t *)args, size);
     memset(args, 0, size);
-    char ST1='S',ST2='T',ST3='C';
-    if(UART_RX.UART_pData[0]==ST1 && UART_RX.UART_pData[1]==ST2)
+    
+    uint8_t ST1=0x41,ST2=0x54,ST3=0x43;
+    
+    if(UART_RX.UART_should==0)
     {
-        if(UART_RX.UART_pData[2]==ST3)
+        if(UART_RX.UART_pData[0]==ST1 && UART_RX.UART_pData[1]==ST2)
         {
-            STC_GET();
+            if(UART_RX.UART_pData[2]==ST3)
+            {
+                STC_GET();
+            }
+            else if(UART_RX.UART_pData[2]==0x53)
+            {
+                UART_RX.UART_should=UART_RX.UART_pData[3];
+                
+                for (int i = 4; i < size; i++)
+                {
+                    i2c_send_data(UART_RX.UART_pData[i],i,ATS_Statu);
+                    UART_RX.UART_should--;
+
+                    if(UART_RX.UART_should==0)
+                    {
+                        if(UART_RX.UART_pData[i+1]==ST1 && UART_RX.UART_pData[i+2]==ST2)
+                        {
+                            if(UART_RX.UART_pData[i+3]==ST3)
+                            {
+                                STC_GET();
+                                return 0;
+                            }
+                            else if(UART_RX.UART_pData[i+3]==0x53)
+                            {
+                                UART_RX.UART_should=UART_RX.UART_pData[i+4];
+                                i+=4;
+                            }
+                        }
+                    }
+                }
+            }
         }
         else
         {
             int i;
-            for (i = 3; i < size; i++)
+            for (i = 0; i < size; i++)
             {
-                i2c_send_data(UART_RX.UART_pData[i],i-3);
+                i2c_send_data(UART_RX.UART_pData[i],i,Pass_Through_Statu);
             }
+            STC_GET();
         }
-        
+    }
+    else
+    {
+        for(int i = 0; i < size; i++)
+            {
+                
+                
+                if(UART_RX.UART_should==0)
+                {
+                    if(UART_RX.UART_pData[i]==ST1 && UART_RX.UART_pData[i+1]==ST2)
+                    {
+                        if(UART_RX.UART_pData[i+2]==ST3)
+                        {
+                            STC_GET();
+                        }
+                    }
+                    return 0;
+                }
+                else
+                {
+                    UART_RX.UART_should--;
+                }
+                i2c_send_data(UART_RX.UART_pData[i],5,ATS_Statu);
+                
+            }
     }
 
-    // int i;
-    // for (i = 0; i < size; i++)
-    // {
-    //     i2c_send_data(UART_RX.UART_pData[i],i);
-    // }
-
-    // i2c_send_status_Flip();
-
-    RX_Data_Init();
+    RX_Data_clean();
 }
 
 void uart1_init(void)

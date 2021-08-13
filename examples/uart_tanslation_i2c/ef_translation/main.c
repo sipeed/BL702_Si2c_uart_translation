@@ -57,7 +57,7 @@ int main(void)
     bflb_platform_init(0);
     uart_ringbuffer_init();
     uart1_init();
-    uart1_config(20000, 8, UART_PAR_NONE, UART_STOP_ONE);
+    uart1_config(115200, 8, UART_PAR_NONE, UART_STOP_ONE);
     RX_Data_Init();
 
     i2c_slave_init();
