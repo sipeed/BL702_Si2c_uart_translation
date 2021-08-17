@@ -28,6 +28,7 @@
 #include "i2c_slave.h"
 // #include "io_cfg.h"
 
+#define ATS_Start 2
 #define ATS_Statu 1
 #define Pass_Through_Statu 0
 
@@ -98,10 +99,16 @@ int uart_irq_callback(struct device *dev, void *args, uint32_t size, uint32_t st
             else if(UART_RX.UART_pData[2]==0x53)
             {
                 UART_RX.UART_should=UART_RX.UART_pData[3];
-                
                 for (int i = 4; i < size; i++)
                 {
-                    i2c_send_data(UART_RX.UART_pData[i],i,ATS_Statu);
+                    if(i!=4)
+                    {
+                        i2c_send_data(UART_RX.UART_pData[i],i,ATS_Statu);    
+                    }
+                    else
+                    {
+                        i2c_send_data(UART_RX.UART_pData[i],i,ATS_Start);
+                    }
                     UART_RX.UART_should--;
 
                     if(UART_RX.UART_should==0)
@@ -139,20 +146,25 @@ int uart_irq_callback(struct device *dev, void *args, uint32_t size, uint32_t st
             {
                 if(UART_RX.UART_should==0)
                 {
-                    if(UART_RX.UART_pData[i]==ST1 && UART_RX.UART_pData[i+1]==ST2)
+                    if(UART_RX.UART_pData[i+1]==ST1 && UART_RX.UART_pData[i+2]==ST2)
                     {
-                        if(UART_RX.UART_pData[i+2]==ST3)
+                        if(UART_RX.UART_pData[i+3]==ST3)
                         {
                             STC_GET();
                         }
+                        else if(UART_RX.UART_pData[i+3]==0x53)
+                        {
+                            UART_RX.UART_should=UART_RX.UART_pData[i+4];
+                            i+=4;
+                        }
                     }
-                    return 0;
                 }
                 else
                 {
                     UART_RX.UART_should--;
+                    i2c_send_data(UART_RX.UART_pData[i],5,ATS_Statu);
                 }
-                i2c_send_data(UART_RX.UART_pData[i],5,ATS_Statu);
+                
                 
             }
     }

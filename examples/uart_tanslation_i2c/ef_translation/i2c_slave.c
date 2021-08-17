@@ -114,16 +114,11 @@ uint32_t i2c_send_data(uint8_t send_data , uint8_t send_count , uint8_t send_sta
   
   if(slave->Data.AorB_Status)             //B_Status
   {
-    if(send_statu)
+    if(send_statu==2)
     {
-      if(send_count==4)
-      {
-        slave->Data.A_head_count=0;
-      }
-      if((send_count-4)%13==0)
-      {
-        slave->Data.A_end_count=9*((send_count-4)/13);
-      }
+      slave->Data.A_head_count=0; 
+      slave->Data.A_end_count=0;
+      slave->Data.A_FIFO=FIFO_Close;
       slave->Data.A_Data[slave->Data.A_end_count]=send_data;
       slave->Data.A_end_count++;
     }
@@ -156,16 +151,11 @@ uint32_t i2c_send_data(uint8_t send_data , uint8_t send_count , uint8_t send_sta
   }
   else                                    //A_Status
   {
-    if(send_statu)
+    if(send_statu==2)
     {
-      if(send_count==4)
-      {
-        slave->Data.B_head_count=0;
-      }
-      if((send_count-4)%13==0)
-      {
-        slave->Data.B_end_count=9*((send_count-4)/13);
-      }
+      slave->Data.B_head_count=0; 
+      slave->Data.B_end_count=0;
+      slave->Data.B_FIFO=FIFO_Close;
       slave->Data.B_Data[slave->Data.B_end_count]=send_data;
       slave->Data.B_end_count++;
     }
