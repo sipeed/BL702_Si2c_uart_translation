@@ -27,17 +27,15 @@
 #include "hal_dma.h"
 #include "i2c_slave.h"
 // #include "io_cfg.h"
-
-#define ATS_Statu 1
-#define Pass_Through_Statu 0
-
+#include"buff.h"
+#include <string.h>
 
 #define USB_OUT_RINGBUFFER_SIZE (8 * 1024)
 #define UART_RX_RINGBUFFER_SIZE (8 * 1024)
 #define UART_TX_DMA_SIZE (4095)
 
 uint8_t usb_rx_mem[USB_OUT_RINGBUFFER_SIZE] __attribute__((section(".system_ram")));
-uint8_t uart_rx_mem[UART_RX_RINGBUFFER_SIZE] __attribute__((section(".system_ram")));
+// uint8_t uart_rx_mem[UART_RX_RINGBUFFER_SIZE] __attribute__((section(".system_ram")));
 
 uint8_t src_buffer[UART_TX_DMA_SIZE] __attribute__((section(".tcm_code")));
 
@@ -45,119 +43,157 @@ struct device *uart1;
 struct device *dma_ch2;
 
 Ring_Buffer_Type usb_rx_rb;
-Ring_Buffer_Type uart1_rx_rb;
+// Ring_Buffer_Type uart1_rx_rb;
 
-struct
+// struct
+// {
+//     uint8_t URD_Count;
+//     uint8_t UART_pData[256];
+//     uint8_t UART_RX_State;
+//     /* data */
+// } UART_RX;
+
+// void RX_Data_Init(void)
+// {
+//     UART_RX.URD_Count = 0;
+//     UART_RX.UART_RX_State = 0;
+
+//     memset(UART_RX.UART_pData, 0, 256);
+// }
+
+// uint8_t ST1=0x41,ST2=0x54,ST3=0x43;
+
+// size_t strcspn ( const char * str1, const char * str2);
+
+#define likely(x) __builtin_expect(!!(x), 1) //gcc内置函数, 帮助编译器分支优化
+#define unlikely(x) __builtin_expect(!!(x), 0)
+
+uint8_t uart_flage = 0;
+uint8_t len_max = 0;
+void uart_irq_callback(struct device *dev, void *args, uint32_t size, uint32_t state)
 {
-    uint8_t URD_Count;
-    uint8_t UART_pData[256];
-    uint8_t UART_RX_State;
-    uint8_t UART_should;
-    
-    /* data */
-} UART_RX;
+    static uint8_t num_t = 0;
+    uint8_t *buf = (uint8_t*)args;
+    // if(len_max > 100)                   //增加透传效率,全速进入透传模式，永不退出
+    // {
+    //     buf_push_l(buf,size);
+    //     memset(args, 0, size);
+    //     return ;
+    // }
+    // while (likely(num ++ && num < size))
+    for (int num = 0; likely(num < size); num++)
+    {
+        switch (uart_flage)
+        {
+        case 32:    
+        {
+            if(likely(num_t --) ) buf_push(buf[num]); //AT缓冲区
+            if(unlikely(num_t == 0)) uart_flage = 15;  
+        }
+        break;
+        case 0:
+        {
+            if(unlikely(buf[num] == 0x41))        //判断是否等于A
+            {
+                uart_flage = 10;
+            }
+            buf_push(buf[num]);  //透传缓冲区
+            len_max ++;
+        }
+        break;
+        case 10:    
+        {
+            if(likely(buf[num] == 0x54))       //判断是否等于T
+            {
+                uart_flage = 12;
+            }
+            else
+            {
+                uart_flage = 0;
+            }
+            buf_push(buf[num]);  //透传缓冲区
+        }
+        break;
 
-void RX_Data_Init(void)
-{
-    UART_RX.URD_Count = 0;
-    UART_RX.UART_RX_State = 0;
-    UART_RX.UART_should = 0;
-    
-
-    memset(UART_RX.UART_pData, 0, 256);
-}
-
-void RX_Data_clean(void)
-{
-    UART_RX.URD_Count = 0;
-    UART_RX.UART_RX_State = 0;
-    
-
-    memset(UART_RX.UART_pData, 0, 256);
-}
-
-
-
-int uart_status;
-int uart_irq_callback(struct device *dev, void *args, uint32_t size, uint32_t state)
-{
-
-    memcpy(UART_RX.UART_pData, (uint8_t *)args, size);
+        case 12:    
+        {
+            if(buf[num] == 0x53)        //判断是否等于S
+            {
+                buf_clean(2);//透传缓冲区清2
+                buf_switch(0);   //执行切换
+                uart_flage = 30;
+            }
+            else if(buf[num] == 0x43)   //判断是否等于C
+            {
+                uart_flage = 15;
+                buf_switch(0);   //执行切换
+            }
+            else
+            {
+                uart_flage = 0;
+                buf_push(buf[num]);  //透传缓冲区
+            }
+        }
+        break;
+        case 15:
+        {
+            if(likely(buf[num] == 0x41))        //判断是否等于A
+            {
+                uart_flage = 17;
+            }
+        }
+        break;
+        case 17:    
+        {
+            if(likely(buf[num] == 0x54))       //判断是否等于T
+            {
+                uart_flage = 20;
+            }
+            else
+            {
+                uart_flage = 15;
+            }
+        }
+        break;
+        case 20:    
+        {
+            if(buf[num] == 0x53)        //判断是否等于S
+            {
+                uart_flage = 30;
+            }
+            else if(buf[num] == 0x43)   //判断是否等于C
+            {
+                uart_flage = 15;
+                buf_switch(0);   //执行切换
+            }
+            else
+            {                       //进入at指令模式后，应该是主动切换出去
+                buf_switch(1);   //执行切换
+                uart_flage = 0;
+            }
+        }
+        break;
+        case 30:    
+        {
+            num_t = buf[num];
+            uart_flage = 32;
+        }
+        break;
+        default:
+            uart_flage = 0;
+            break;
+        }
+    }
+    // memcpy(UART_RX.UART_pData, (uint8_t *)args, size);
     memset(args, 0, size);
-    
-    uint8_t ST1=0x41,ST2=0x54,ST3=0x43;
-    
-    if(UART_RX.UART_should==0)
-    {
-        if(UART_RX.UART_pData[0]==ST1 && UART_RX.UART_pData[1]==ST2)
-        {
-            if(UART_RX.UART_pData[2]==ST3)
-            {
-                STC_GET();
-            }
-            else if(UART_RX.UART_pData[2]==0x53)
-            {
-                UART_RX.UART_should=UART_RX.UART_pData[3];
-                
-                for (int i = 4; i < size; i++)
-                {
-                    i2c_send_data(UART_RX.UART_pData[i],i,ATS_Statu);
-                    UART_RX.UART_should--;
 
-                    if(UART_RX.UART_should==0)
-                    {
-                        if(UART_RX.UART_pData[i+1]==ST1 && UART_RX.UART_pData[i+2]==ST2)
-                        {
-                            if(UART_RX.UART_pData[i+3]==ST3)
-                            {
-                                STC_GET();
-                                return 0;
-                            }
-                            else if(UART_RX.UART_pData[i+3]==0x53)
-                            {
-                                UART_RX.UART_should=UART_RX.UART_pData[i+4];
-                                i+=4;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        else
-        {
-            int i;
-            for (i = 0; i < size; i++)
-            {
-                i2c_send_data(UART_RX.UART_pData[i],i,Pass_Through_Statu);
-            }
-            STC_GET();
-        }
-    }
-    else
-    {
-        for(int i = 0; i < size; i++)
-            {
-                if(UART_RX.UART_should==0)
-                {
-                    if(UART_RX.UART_pData[i]==ST1 && UART_RX.UART_pData[i+1]==ST2)
-                    {
-                        if(UART_RX.UART_pData[i+2]==ST3)
-                        {
-                            STC_GET();
-                        }
-                    }
-                    return 0;
-                }
-                else
-                {
-                    UART_RX.UART_should--;
-                }
-                i2c_send_data(UART_RX.UART_pData[i],5,ATS_Statu);
-                
-            }
-    }
+    // int i;
+    // for (i = 0; i < size; i++)
+    // {
+    //     i2c_send_data(UART_RX.UART_pData[i]);
+    // }
 
-    RX_Data_clean();
+    // RX_Data_Init();
 }
 
 void uart1_init(void)
@@ -221,11 +257,11 @@ void uart_ringbuffer_init(void)
 {
     /* init mem for ring_buffer */
     memset(usb_rx_mem, 0, USB_OUT_RINGBUFFER_SIZE);
-    memset(uart_rx_mem, 0, UART_RX_RINGBUFFER_SIZE);
+    // memset(uart_rx_mem, 0, UART_RX_RINGBUFFER_SIZE);
 
     /* init ring_buffer */
     Ring_Buffer_Init(&usb_rx_rb, usb_rx_mem, USB_OUT_RINGBUFFER_SIZE, ringbuffer_lock, ringbuffer_unlock);
-    Ring_Buffer_Init(&uart1_rx_rb, uart_rx_mem, UART_RX_RINGBUFFER_SIZE, ringbuffer_lock, ringbuffer_unlock);
+    // Ring_Buffer_Init(&uart1_rx_rb, uart_rx_mem, UART_RX_RINGBUFFER_SIZE, ringbuffer_lock, ringbuffer_unlock);
 }
 
 static dma_control_data_t uart_dma_ctrl_cfg =
