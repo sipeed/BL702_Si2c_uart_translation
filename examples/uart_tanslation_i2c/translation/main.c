@@ -27,7 +27,7 @@
 #include "hal_gpio.h"
 
 #include "uart_interface.h"
-
+#include"buff.h"
 #define sda_io GPIO_PIN_0
 #define scl_io GPIO_PIN_15
 
@@ -47,44 +47,32 @@
 #define SCL_INPUT SCL_da >> 15
 
 int i2c_flages;
-int i2c_count;
+
 
 int main(void)
 {
 
     GLB_Select_Internal_Flash();
-
+    gpio_set_mode(GPIO_PIN_1,GPIO_OUTPUT_PP_MODE);
     bflb_platform_init(0);
     uart_ringbuffer_init();
     uart1_init();
     uart1_config(115200, 8, UART_PAR_NONE, UART_STOP_ONE);
-    RX_Data_Init();
-
+    // RX_Data_Init();
+    init();
     i2c_slave_init();
-
-    uint8_t TX_AABB[200] = {0};
-
+    while (!(SCL_INPUT && SDA_INPUT));
     for (;;)
     {
-        uart_send_from_ringbuffer();
         disable_irq();
-        if (SDA_INPUT == 0)
+        if (SCL_INPUT && (SDA_INPUT == 0))
             i2c_slave_sda_interrupt_callback();
         enable_irq();
-
         if (i2c_flages == 1)
         {
-
-            for (int i = 0; i < i2c_count; i++)
-            {
-                TX_AABB[i] = my_slave.dev.data[i];
-            }
-
-            Ring_Buffer_Write(&usb_rx_rb, (uint8_t *)TX_AABB, i2c_count);
-
-            memset(TX_AABB, 0, 200);
-
+            Ring_Buffer_Write(&usb_rx_rb,my_slave.dev.data, my_slave.dev.data_offs);
             i2c_flages = 0;
         }
+        uart_send_from_ringbuffer();
     }
 }

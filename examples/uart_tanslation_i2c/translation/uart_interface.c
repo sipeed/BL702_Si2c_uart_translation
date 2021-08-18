@@ -27,13 +27,15 @@
 #include "hal_dma.h"
 #include "i2c_slave.h"
 // #include "io_cfg.h"
+#include"buff.h"
+#include <string.h>
 
 #define USB_OUT_RINGBUFFER_SIZE (8 * 1024)
 #define UART_RX_RINGBUFFER_SIZE (8 * 1024)
 #define UART_TX_DMA_SIZE (4095)
 
 uint8_t usb_rx_mem[USB_OUT_RINGBUFFER_SIZE] __attribute__((section(".system_ram")));
-uint8_t uart_rx_mem[UART_RX_RINGBUFFER_SIZE] __attribute__((section(".system_ram")));
+// uint8_t uart_rx_mem[UART_RX_RINGBUFFER_SIZE] __attribute__((section(".system_ram")));
 
 uint8_t src_buffer[UART_TX_DMA_SIZE] __attribute__((section(".tcm_code")));
 
@@ -41,38 +43,151 @@ struct device *uart1;
 struct device *dma_ch2;
 
 Ring_Buffer_Type usb_rx_rb;
-Ring_Buffer_Type uart1_rx_rb;
+// Ring_Buffer_Type uart1_rx_rb;
 
-struct
-{
-    uint8_t URD_Count;
-    uint8_t UART_pData[256];
-    uint8_t UART_RX_State;
-    /* data */
-} UART_RX;
 
-void RX_Data_Init(void)
-{
-    UART_RX.URD_Count = 0;
-    UART_RX.UART_RX_State = 0;
 
-    memset(UART_RX.UART_pData, 0, 256);
-}
-
-int uart_status;
+#define likely(x) __builtin_expect(!!(x), 1) //gcc内置函数, 帮助编译器分支优化
+#define unlikely(x) __builtin_expect(!!(x), 0)
+uint8_t s_l = 3;
+uint32_t baudrate = 115200;
+uint8_t uart_flage = 0;
 void uart_irq_callback(struct device *dev, void *args, uint32_t size, uint32_t state)
 {
-
-    memcpy(UART_RX.UART_pData, (uint8_t *)args, size);
-    memset(args, 0, size);
-
-    int i;
-    for (i = 0; i < size; i++)
+    static uint8_t num_t = 0;
+    uint8_t *buf = (uint8_t*)args;
+    for (int num = 0; likely(num < size); num++)
     {
-        i2c_send_data(UART_RX.UART_pData[i]);
-    }
+        switch (uart_flage)
+        {
+        case 0:
+        {
+            if(unlikely(buf[num] == 0x41))        //判断是否等于A
+            {
+                uart_flage = 10;
+            }
+            buf_push(buf[num]);  //透传缓冲区
+        }
+        break;
+        case 10:    
+        {
+            if(likely(buf[num] == 0x54))       //判断是否等于T
+            {
+                uart_flage = 12;
+            }
+            else
+            {
+                uart_flage = 0;
+            }
+            buf_push(buf[num]);  //透传缓冲区
+        }
+        break;
 
-    RX_Data_Init();
+        case 12:    
+        {
+            switch (buf[num])
+            {
+            case 0x53:      //判断是否等于S
+                buf_clean(2);//透传缓冲区清2
+                buf_switch(0);   //执行切换
+                uart_flage = 30;
+                break;
+            case 0x43:      //判断是否等于C
+                uart_flage = 15;
+                buf_switch(0);   //执行切换
+                break;
+            case 0x86:          //执行切换串口速率
+                uart_flage = 100;
+                break;
+            default:
+                uart_flage = 0;
+                buf_push(buf[num]);  //透传缓冲区
+                break;
+            }
+        }
+        break;
+        case 15:
+        {
+            if(likely(buf[num] == 0x41))        //判断是否等于A
+            {
+                uart_flage = 17;
+            }
+        }
+        break;
+        case 17:    
+        {
+            if(likely(buf[num] == 0x54))       //判断是否等于T
+            {
+                uart_flage = 20;
+            }
+            else
+            {
+                uart_flage = 15;
+            }
+        }
+        break;
+        case 20:    
+        {
+            if(buf[num] == 0x53)        //判断是否等于S
+            {
+                uart_flage = 30;
+            }
+            else if(buf[num] == 0x43)   //判断是否等于C
+            {
+                uart_flage = 15;
+                buf_switch(0);   //执行切换
+            }
+            else
+            {                       //进入at指令模式后，应该是主动切换出去
+                buf_switch(1);   //执行切换
+                uart_flage = 0;
+            }
+        }
+        break;
+        case 30:    
+        {
+            num_t = buf[num];
+            uart_flage = 32;
+        }
+        break;
+        case 32:    
+        {
+            if(likely(num_t --) ) buf_push(buf[num]); //AT缓冲区
+            if(unlikely(num_t == 0)) uart_flage = 15;  
+        }
+        break;
+        case 100:
+        {
+            uint8_t val_v = buf[num];
+            switch (s_l)
+            {
+            case 3:
+                baudrate = 0;
+                baudrate |= val_v << s_l * 8;
+                s_l--;
+                break;
+            case 1 ... 2:
+                baudrate |= val_v << s_l * 8;
+                s_l--;
+                break;
+            case 0:
+                baudrate |= val_v ;
+                s_l = 3;
+                uart1_config(baudrate, 8, UART_PAR_NONE, UART_STOP_ONE);
+                uart_flage = 0;
+                break;
+            default:
+                uart_flage = 0;
+                break;
+            }
+        }
+        break;
+        default:
+            uart_flage = 0;
+            break;
+        }
+    }
+    memset(args, 0, size);
 }
 
 void uart1_init(void)
@@ -136,11 +251,11 @@ void uart_ringbuffer_init(void)
 {
     /* init mem for ring_buffer */
     memset(usb_rx_mem, 0, USB_OUT_RINGBUFFER_SIZE);
-    memset(uart_rx_mem, 0, UART_RX_RINGBUFFER_SIZE);
+    // memset(uart_rx_mem, 0, UART_RX_RINGBUFFER_SIZE);
 
     /* init ring_buffer */
     Ring_Buffer_Init(&usb_rx_rb, usb_rx_mem, USB_OUT_RINGBUFFER_SIZE, ringbuffer_lock, ringbuffer_unlock);
-    Ring_Buffer_Init(&uart1_rx_rb, uart_rx_mem, UART_RX_RINGBUFFER_SIZE, ringbuffer_lock, ringbuffer_unlock);
+    // Ring_Buffer_Init(&uart1_rx_rb, uart_rx_mem, UART_RX_RINGBUFFER_SIZE, ringbuffer_lock, ringbuffer_unlock);
 }
 
 static dma_control_data_t uart_dma_ctrl_cfg =
