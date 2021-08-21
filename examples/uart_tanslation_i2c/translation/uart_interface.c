@@ -56,7 +56,7 @@ void uart_irq_callback(struct device *dev, void *args, uint32_t size, uint32_t s
 {
     static uint8_t num_t = 0;
     uint8_t *buf = (uint8_t*)args;
-    for (int num = 0; likely(num < size); num++)
+    for (int num = 0;num < size; num++)
     {
         switch (uart_flage)
         {

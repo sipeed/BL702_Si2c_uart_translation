@@ -5,7 +5,8 @@
 #define likely(x) __builtin_expect(!!(x), 1) //gcc内置函数, 帮助编译器分支优化
 #define unlikely(x) __builtin_expect(!!(x), 0)
 
-#define BUFFER_MAX (8 * 1024) //缓冲区大小
+// #define BUFFER_MAX (8 * 1024) //缓冲区大小
+#define BUFFER_MAX (256) //缓冲区大小
 #define io1_HIGH ((*(volatile uint32_t *)0x40000188) |= (1 << 1))
 #define io1_LOW ((*(volatile uint32_t *)0x40000188) &= (~(1 << 1)))
 typedef struct _circle_buffer
