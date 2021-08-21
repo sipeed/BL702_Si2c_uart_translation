@@ -10,11 +10,13 @@
 
 #define gcc_good "O3"
 
+#define I2C_BUFFER_MAX (4 * 1024) //缓冲区大小
+
 struct i2c_device
 {
-  uint8_t addr;
-  uint8_t data_offs;
-  uint8_t data[256];
+  uint32_t addr;
+  uint32_t data_offs;
+  uint8_t data[I2C_BUFFER_MAX];
   // uint8_t send_data[256];
 
   /* something such as data field

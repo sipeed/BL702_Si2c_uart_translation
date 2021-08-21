@@ -1,0 +1,10 @@
+[proxychains] config file found: /etc/proxychains.conf
+[proxychains] preloading /usr/lib64/libproxychains4.so
+[proxychains] DLL init: proxychains-ng 4.14
+推送到 proxychains
+[proxychains] DLL init: proxychains-ng 4.14
+[proxychains] DLL init: proxychains-ng 4.14
+fatal: 'proxychains' does not appear to be a git repository
+fatal: 无法读取远程仓库。
+
+请确认您有正确的访问权限并且仓库存在。

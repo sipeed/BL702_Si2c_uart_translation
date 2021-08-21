@@ -70,7 +70,7 @@ struct i2c_slave my_slave;
 
 int32_t i2c_slave_init(void)
 {
-  uint32_t i, j;
+  // uint32_t i, j;
   struct i2c_slave *slave;
 
   slave = &my_slave;
@@ -79,17 +79,17 @@ int32_t i2c_slave_init(void)
 
   slave->dev.data_offs = 0;
 
-  for (i = 0; i < sizeof(slave->dev.data); i++)
-  {
-    slave->dev.data[i] = 0;
-  }
+  // for (i = 0; i < sizeof(slave->dev.data); i++)
+  // {
+  //   slave->dev.data[i] = 0;
+  // }
   i2c_pins_init();
   return 0;
 }
 int32_t i2c_slave_sda_interrupt_callback()
 {
   volatile int32_t val;
-  volatile uint8_t byte;
+  uint8_t byte;
   struct i2c_slave *slave;
   volatile int32_t idx;
   volatile int count;
@@ -424,8 +424,8 @@ static inline int32_t slave_data_send(struct i2c_slave *slave)
 static inline int32_t slave_data_receive(struct i2c_slave *slave)
 {
   // volatile int32_t val = 0;
-  volatile uint8_t byte;
-  volatile uint8_t flag = I2C_DEV_OFFS;
+  uint8_t byte;
+  uint8_t flag = I2C_DEV_OFFS;
   while (slave_byte_read(slave, &byte) != I2C_RET_END)
   {
     if (i2c_ack_send(slave) == I2C_RET_END)

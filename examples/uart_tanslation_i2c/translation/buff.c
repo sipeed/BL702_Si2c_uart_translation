@@ -1,13 +1,18 @@
 #include "buff.h"
 
-#define BUFFER_MAX 256 //缓冲区大小
+
+
+#define likely(x) __builtin_expect(!!(x), 1) //gcc内置函数, 帮助编译器分支优化
+#define unlikely(x) __builtin_expect(!!(x), 0)
+
+#define BUFFER_MAX (8 * 1024) //缓冲区大小
 #define io1_HIGH ((*(volatile uint32_t *)0x40000188) |= (1 << 1))
 #define io1_LOW ((*(volatile uint32_t *)0x40000188) &= (~(1 << 1)))
 typedef struct _circle_buffer
 {
-    uint8_t head_pos; //缓冲区头部位置
-    uint8_t tail_pos; //缓冲区尾部位置
-    int len;
+    uint32_t head_pos; //缓冲区头部位置
+    uint32_t tail_pos; //缓冲区尾部位置
+    uint32_t len;
 
     uint8_t circle_buffer[BUFFER_MAX]; //缓冲区数组
 } circle_buffer;
@@ -81,16 +86,16 @@ void buf_push(uint8_t data) //入队列
             buffer_A.len = 0;
             sw_flage = 0;
         }
-        if (buffer_A.len == 256)
+        if (buffer_A.len == BUFFER_MAX)
         {
             buffer_A.circle_buffer[buffer_A.tail_pos] = data;
-            buffer_A.tail_pos++;
-            buffer_A.head_pos++;
+            if(++ buffer_A.tail_pos == BUFFER_MAX) buffer_A.tail_pos = 0;
+            if(++ buffer_A.head_pos == BUFFER_MAX) buffer_A.head_pos = 0;
         }
         else
         {
             buffer_A.circle_buffer[buffer_A.tail_pos] = data; //在尾部添加
-            buffer_A.tail_pos++;
+            if(++ buffer_A.tail_pos == BUFFER_MAX) buffer_A.tail_pos = 0;
             buffer_A.len++;
         }
     }
@@ -104,16 +109,16 @@ void buf_push(uint8_t data) //入队列
             buffer_B.len = 0;
             sw_flage = 0;
         }
-        if (buffer_B.len == 256)
+        if (buffer_B.len == BUFFER_MAX)
         {
             buffer_B.circle_buffer[buffer_B.tail_pos] = data;
-            buffer_B.tail_pos++;
-            buffer_B.head_pos++;
+            if(++ buffer_B.tail_pos == BUFFER_MAX) buffer_B.tail_pos = 0;
+            if(++ buffer_B.head_pos == BUFFER_MAX) buffer_B.head_pos = 0;
         }
         else
         {
             buffer_B.circle_buffer[buffer_B.tail_pos] = data; //在尾部添加
-            buffer_B.tail_pos++;
+            if(++ buffer_B.tail_pos == BUFFER_MAX) buffer_B.tail_pos = 0;
             buffer_B.len++;
         }
     }
@@ -123,12 +128,13 @@ uint8_t buf_pop() //出队列
     uint8_t data;
     if (buf_flage == 0 || buf_flage == 1)
     {
-        if (buffer_A.len == 0) //如果头尾接触表示缓冲区为空
+        if (buffer_A.len == 0) //为空返回0
             data = 0x00;
         else
         {
             data = buffer_A.circle_buffer[buffer_A.head_pos]; //如果缓冲区非空则取头节点值并偏移头节点
-            buffer_A.head_pos++;                              //当buff溢出时，自动归0
+            if(++ buffer_A.head_pos == BUFFER_MAX) buffer_A.head_pos = 0;
+            // buffer_A.head_pos++;                              //当buff溢出时，自动归0
             // if (++buffer_A.head_pos >= BUFFER_MAX)
             //     buffer_A.head_pos = 0;
             buffer_A.len--;
@@ -146,7 +152,7 @@ uint8_t buf_pop() //出队列
         else
         {
             data = buffer_B.circle_buffer[buffer_B.head_pos]; //如果缓冲区非空则取头节点值并偏移头节点
-            buffer_B.head_pos++;                              //当buff溢出时，自动归0
+            if(++ buffer_B.head_pos == BUFFER_MAX) buffer_B.head_pos = 0 ;                              //当buff溢出时，自动归0
             // if (++buffer_B.head_pos >= BUFFER_MAX)
             //     buffer_B.head_pos = 0;
             buffer_B.len--;
@@ -159,7 +165,7 @@ uint8_t buf_pop() //出队列
     }
 }
 
-void buf_clean(uint8_t num)
+void buf_clean(uint32_t num)
 {
     if (buf_flage == 2 || buf_flage == 0)
     {
@@ -172,7 +178,15 @@ void buf_clean(uint8_t num)
         else
         {
             buffer_A.len -= num;
-            buffer_A.tail_pos -= num;
+            if(buffer_A.tail_pos >= num)
+            {
+                buffer_A.tail_pos -= num;
+            }
+            else
+            {
+                buffer_A.tail_pos = BUFFER_MAX - (num - buffer_A.tail_pos);
+            }
+            
         }
     }
     else
@@ -187,7 +201,14 @@ void buf_clean(uint8_t num)
         else
         {
             buffer_B.len -= num;
-            buffer_B.tail_pos -= num;
+            if(buffer_B.tail_pos >= num)
+            {
+                buffer_B.tail_pos -= num;
+            }
+            else
+            {
+                buffer_B.tail_pos = BUFFER_MAX - (num - buffer_B.tail_pos);
+            }
         }
     }
 }
