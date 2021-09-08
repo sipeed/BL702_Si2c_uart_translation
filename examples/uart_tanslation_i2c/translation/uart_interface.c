@@ -96,9 +96,9 @@ void uart_irq_callback(struct device *dev, void *args, uint32_t size, uint32_t s
                 uart_flage = 15;
                 buf_switch(0);   //执行切换
                 break;
-            case 0x86:          //执行切换串口速率
-                uart_flage = 100;
-                break;
+            // case 0x86:          //执行切换串口速率
+            //     uart_flage = 100;
+            //     break;
             default:
                 uart_flage = 0;
                 buf_push(buf[num]);  //透传缓冲区
@@ -156,32 +156,32 @@ void uart_irq_callback(struct device *dev, void *args, uint32_t size, uint32_t s
             if(unlikely(num_t == 0)) uart_flage = 15;  
         }
         break;
-        case 100:
-        {
-            uint8_t val_v = buf[num];
-            switch (s_l)
-            {
-            case 3:
-                baudrate = 0;
-                baudrate |= val_v << s_l * 8;
-                s_l--;
-                break;
-            case 1 ... 2:
-                baudrate |= val_v << s_l * 8;
-                s_l--;
-                break;
-            case 0:
-                baudrate |= val_v ;
-                s_l = 3;
-                uart1_config(baudrate, 8, UART_PAR_NONE, UART_STOP_ONE);
-                uart_flage = 0;
-                break;
-            default:
-                uart_flage = 0;
-                break;
-            }
-        }
-        break;
+        // case 100:
+        // {
+        //     uint8_t val_v = buf[num];
+        //     switch (s_l)
+        //     {
+        //     case 3:
+        //         baudrate = 0;
+        //         baudrate |= val_v << s_l * 8;
+        //         s_l--;
+        //         break;
+        //     case 1 ... 2:
+        //         baudrate |= val_v << s_l * 8;
+        //         s_l--;
+        //         break;
+        //     case 0:
+        //         baudrate |= val_v ;
+        //         s_l = 3;
+        //         uart1_config(baudrate, 8, UART_PAR_NONE, UART_STOP_ONE);
+        //         uart_flage = 0;
+        //         break;
+        //     default:
+        //         uart_flage = 0;
+        //         break;
+        //     }
+        // }
+        // break;
         default:
             uart_flage = 0;
             break;
