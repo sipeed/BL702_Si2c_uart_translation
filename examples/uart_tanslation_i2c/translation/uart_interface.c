@@ -50,7 +50,6 @@ Ring_Buffer_Type usb_rx_rb;
 #define likely(x) __builtin_expect(!!(x), 1) //gcc内置函数, 帮助编译器分支优化
 #define unlikely(x) __builtin_expect(!!(x), 0)
 uint8_t s_l = 3;
-uint32_t baudrate = 115200;
 uint8_t uart_flage = 0;
 void uart_irq_callback(struct device *dev, void *args, uint32_t size, uint32_t state)
 {

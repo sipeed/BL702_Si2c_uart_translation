@@ -22,7 +22,7 @@ circle_buffer buffer_B;
 
 uint8_t buf_flage = 0;
 
-void init()
+void buff_init(void)
 {
     buffer_A.head_pos = 0;
     buffer_A.tail_pos = 0;
@@ -124,7 +124,7 @@ void buf_push(uint8_t data) //入队列
         }
     }
 }
-uint8_t buf_pop() //出队列
+uint8_t buf_pop(void) //出队列
 {
     uint8_t data;
     if (buf_flage == 0 || buf_flage == 1)

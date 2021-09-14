@@ -59,18 +59,15 @@ int main(void)
     uart1_init();
     uart1_config(115200, 8, UART_PAR_NONE, UART_STOP_ONE);
     // RX_Data_Init();
-    init();
-    i2c_slave_init();
-    while (!(SCL_INPUT && SDA_INPUT));
+    buff_init();
+    my_i2c_slave_init();
     for (;;)
     {
-        disable_irq();
-        if (SCL_INPUT && (SDA_INPUT == 0))
-            i2c_slave_sda_interrupt_callback();
-        enable_irq();
+        i2c_event_selet();
         if (i2c_flages == 1)
         {
-            Ring_Buffer_Write(&usb_rx_rb,my_slave.dev.data, my_slave.dev.data_offs);
+            Ring_Buffer_Write(&usb_rx_rb,my_i2c_slave.data, my_i2c_slave.data_offs);
+            my_i2c_slave.data_offs = 0;
             i2c_flages = 0;
         }
         uart_send_from_ringbuffer();
