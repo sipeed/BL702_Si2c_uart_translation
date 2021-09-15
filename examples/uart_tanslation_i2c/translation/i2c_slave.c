@@ -15,8 +15,7 @@
 // #define sda_io GPIO_PIN_0
 // #define scl_io GPIO_PIN_15
 
-// #define io1_HIGH ((*(volatile uint32_t *)0x40000188) |= (1 << 1))
-// #define io1_LOW ((*(volatile uint32_t *)0x40000188) &= (~(1 << 1)))
+
 
 // #define SDA_HIGH ((*(volatile uint32_t *)0x40000188) |= (1 << sda_io))
 // #define SDA_LOW ((*(volatile uint32_t *)0x40000188) &= (~(1 << sda_io)))
@@ -81,15 +80,74 @@
 #include "buff.h"
 #include "misc.h"
 
+
+#define io1_HIGH ((*(volatile uint32_t *)0x40000188) |= (1 << 1))
+#define io1_LOW ((*(volatile uint32_t *)0x40000188) &= (~(1 << 1)))
+
+
+
+
+
 #define sda_io GPIO_PIN_0
 #define scl_io GPIO_PIN_15
 
 
+#define GPIO_REG1        (*(volatile uint32_t *)0x40000100)     //SDA io控制寄存器  GPIO_0
+#define GPIO_REG2        (*(volatile uint32_t *)0x4000011C)     //SCL io控制寄存器  GPIO_15
+#define GPIO_REG3        (*(volatile uint32_t *)0x40000190)     //SDA和SCL io控制寄存器
 
-#define I2C_SCL_IN        gpio_set_mode(scl_io, GPIO_INPUT_MODE)
-#define I2C_SCL_OUT       gpio_set_mode(sda_io, GPIO_OUTPUT_PP_MODE)
-#define I2C_SDA_IN        gpio_set_mode(sda_io, GPIO_INPUT_MODE)
-#define I2C_SDA_OUT       gpio_set_mode(sda_io, GPIO_OUTPUT_PP_MODE)
+
+
+
+#define I2C_SDA_IN        do{ \
+                              uint32_t reg_val = GPIO_REG1;\
+                              reg_val &= 0xFFFF0000;\
+                              reg_val |= 0x00000B1F ;\
+                              GPIO_REG1 = reg_val;\
+                              reg_val = GPIO_REG3;\
+                              reg_val &= ~ 0x00000001;\
+                              GPIO_REG3 = reg_val;\
+                                }while(0)
+
+#define I2C_SDA_OUT       do{ \
+                              uint32_t reg_val = GPIO_REG1;\
+                              reg_val = reg_val & 0xFFFF0000;\
+                              reg_val = reg_val | 0x00000B1C ;\
+                              GPIO_REG1 = reg_val;\
+                              reg_val = GPIO_REG3;\
+                              reg_val = reg_val | 0x00000001;\
+                              GPIO_REG3 = reg_val;\
+                                }while(0)
+
+
+#define I2C_SCL_IN        do{ \
+                              uint32_t reg_val = GPIO_REG2;\
+                              reg_val = reg_val & 0x0000FFFF;\
+                              reg_val = reg_val | 0x0B1F0000 ;\
+                              GPIO_REG2 = reg_val;\
+                              reg_val = GPIO_REG3;\
+                              reg_val = reg_val & (~ 0x00008000);\
+                              GPIO_REG3 = reg_val;\
+                                }while(0)
+
+
+#define I2C_SCL_OUT       do{ \
+                              uint32_t reg_val = GPIO_REG2;\
+                              reg_val = reg_val & 0x0000FFFF;\
+                              reg_val = reg_val | 0x0B1C0000 ;\
+                              GPIO_REG2 = reg_val;\
+                              reg_val = GPIO_REG3;\
+                              reg_val = reg_val | 0x00008000;\
+                              GPIO_REG3 = reg_val;\
+                                }while(0)
+
+
+
+
+// #define I2C_SCL_IN        gpio_set_mode(scl_io, GPIO_INPUT_MODE)
+// #define I2C_SCL_OUT       gpio_set_mode(sda_io, GPIO_OUTPUT_PP_MODE)
+// #define I2C_SDA_IN        gpio_set_mode(sda_io, GPIO_INPUT_MODE)
+// #define I2C_SDA_OUT       gpio_set_mode(sda_io, GPIO_OUTPUT_PP_MODE)
 
 
 #define SDA_da            ((*(volatile uint32_t *)0x40000180) & 1)
@@ -159,7 +217,7 @@ static void i2c_slave_interrupt(void)
       {
         i2c_slave_send_ack();                     //地址符合后发送应答
         myslave->i2c_flage |= I2C_STATE_DEVICE;   //置总线设备标志位
-        if(data & 0x01)                           //判断总些读写,并置读写位
+        if(data & 0x01)                           //判断总线读写,并置读写位
         {
             myslave->i2c_flage |= I2C_STATE_WR;
         }
@@ -194,12 +252,16 @@ static void i2c_slave_interrupt(void)
       break;
 
     case 0xE2 :   //无应答
-      i2c_wait_scl(1);
+      i2c_wait_scl(IO_HIGH);
+      io1_HIGH;
+      io1_LOW;
       uint32_t i = I2C_SLAVE_TIMEOUT;
       while (i --)
       {
         if(I2C_SDA_IO == IO_HIGH)
         {
+          io1_HIGH;
+          io1_LOW;
           goto end;
         }
       }
@@ -217,7 +279,7 @@ static void i2c_slave_interrupt(void)
       break;
 
     default:
-      i2c_wait_scl(1);
+      i2c_wait_scl(IO_HIGH);
       uint32_t timesc = I2C_SLAVE_TIMEOUT;
       while (timesc --)
       {
@@ -266,9 +328,9 @@ static uint8_t i2c_read_byte()
   for (int i = 0; i < 8; i++)
   {
     //TODO:timeout check
-    if(i2c_wait_scl(1) < 0) return 0;
+    if(i2c_wait_scl(IO_HIGH) < 0) return 0;
 
-    val = (val << 0x1) | I2C_SDA_IO;
+    val = (val << 1) | I2C_SDA_IO;
 
     count = I2C_SLAVE_TIMEOUT;
     while (I2C_SCL_IO)
@@ -292,7 +354,7 @@ static uint8_t i2c_read_byte()
         else
         {
           myslave->i2c_flage = I2C_STATE_USE;     //高到低跳变改变总线状态为读取地址状态
-          i2c_wait_scl(0);
+          i2c_wait_scl(IO_LOW);
         }
         return 0;
       }
@@ -326,7 +388,7 @@ static void i2c_write_byte(uint8_t val)
     if (i2c_wait_scl(1) < 0) return ;
     if (i2c_wait_scl(0) < 0) return ;
   }
-  i2c_sda_set(1);
+  i2c_sda_set(IO_HIGH);
 }
 
 
@@ -334,12 +396,12 @@ static void i2c_slave_send_ack()
 {
 
   /* slave driver sda to low for ACK */
-  i2c_sda_set(0);
+  i2c_sda_set(IO_LOW);
   /* wait master read(scl rising edge trigger) ACK */
   /* wait scl to HIGH */
-  if (i2c_wait_scl(1) < 0) return ;
+  if (i2c_wait_scl(IO_HIGH) < 0) return ;
   /* wait scl to low */
-  if (i2c_wait_scl(0) < 0) return ;
+  if (i2c_wait_scl(IO_LOW) < 0) return ;
 
   i2c_sda_set(1);
 }
@@ -347,7 +409,7 @@ static void i2c_slave_send_ack()
 static void i2c_slave_get_ack()
 {
   struct MY_I2C_SLAVE *myslave = &my_i2c_slave;
-  if (i2c_wait_scl(1) < 0) return ;
+  if (i2c_wait_scl(IO_HIGH) < 0) return ;
   if(I2C_SDA_IO)
   {
     myslave->i2c_flage &= ~I2C_STATE_ACK;
@@ -356,7 +418,7 @@ static void i2c_slave_get_ack()
   {
     myslave->i2c_flage |= I2C_STATE_ACK;
   }
-  i2c_wait_scl(0);
+  i2c_wait_scl(IO_LOW);
 }
 
 

@@ -49,11 +49,14 @@
 int i2c_flages;
 
 
+
+
 int main(void)
 {
 
     GLB_Select_Internal_Flash();
     gpio_set_mode(GPIO_PIN_1,GPIO_OUTPUT_PP_MODE);
+    
     bflb_platform_init(0);
     uart_ringbuffer_init();
     uart1_init();
@@ -72,4 +75,8 @@ int main(void)
         }
         uart_send_from_ringbuffer();
     }
+
+
+
+
 }
