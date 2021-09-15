@@ -123,6 +123,11 @@ void my_i2c_slave_init(void)
   myslave->i2c_flage = 0;
   myslave->data_offs = 0;
   i2c_pins_init();
+  my_i2c_slave.i2c_flage = 0x81;
+  i2c_slave_interrupt();
+  my_i2c_slave.i2c_flage = 0xE0;
+  i2c_slave_interrupt();
+  myslave->data_offs = 0;
   while (I2C_SCL_IO == IO_LOW || I2C_SDA_IO == IO_LOW);
 }
 
@@ -136,7 +141,6 @@ void i2c_event_selet(void)
   }
   INTTERUPT_ON;
 }
-
 
 static void i2c_slave_interrupt(void)
 {
@@ -211,7 +215,7 @@ static void i2c_slave_interrupt(void)
       break;
 
     default:
-      i2c_wait_scl(IO_HIGH);
+      if(i2c_wait_scl(IO_HIGH) < 0) goto end;
       uint32_t timesc = I2C_SLAVE_TIMEOUT;
       while (timesc --)
       {
