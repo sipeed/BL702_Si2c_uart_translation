@@ -123,7 +123,7 @@ void my_i2c_slave_init(void)
   myslave->i2c_flage = 0;
   myslave->data_offs = 0;
   i2c_pins_init();
-  my_i2c_slave.i2c_flage = 0x81;          //#只有用魔法才能打败魔法,去掉这四句代码将会报错,请不要认为它是多余的
+  my_i2c_slave.i2c_flage = 0x81;          //#程序加速处理
   i2c_slave_interrupt();
   my_i2c_slave.i2c_flage = 0xE0;
   i2c_slave_interrupt();
