@@ -49,6 +49,7 @@ void buf_switch(int flag)
             { //当A读完，B缓冲区写完后，符合条件进行切换
                 buf_flage = 2;
                 sw_flage = 0; //切换成功
+                buf_clean(0);
             }
             else
             {
@@ -61,6 +62,7 @@ void buf_switch(int flag)
             { //当B读完，A缓冲区写完后，符合条件进行切换
                 buf_flage = 1;
                 sw_flage = 0; //切换成功
+                buf_clean(0);
             }
             else
             {
@@ -134,7 +136,7 @@ uint8_t buf_pop(void) //出队列
             data = 0x00;
         else
         {
-            buff_r = 1;                                 //发生读
+            buff_r = 1;                                 //切换加锁
             data = buffer_A.circle_buffer[buffer_A.head_pos]; //如果缓冲区非空则取头节点值并偏移头节点
             if(++ buffer_A.head_pos == BUFFER_MAX) buffer_A.head_pos = 0;
             // buffer_A.head_pos++;                              //当buff溢出时，自动归0
@@ -143,16 +145,8 @@ uint8_t buf_pop(void) //出队列
             buffer_A.len--;
             if(buffer_A.len == 0)
             {
-                buff_r = 0;                                 //读归零
-                if(sw_flage == 1)
-                {
-                    buf_switch(0);
-                }
+                buff_r = 0;                             //切换解锁
             }
-            // if (buffer_A.len == 0 && sw_flage == 1)
-            // {
-            //     buf_switch(0);
-            // }
         }
         return data;
     }
@@ -162,7 +156,7 @@ uint8_t buf_pop(void) //出队列
             data = 0x00;
         else
         {
-            buff_r = 1;                                 //发生读
+            buff_r = 1;                                 //切换加锁
             data = buffer_B.circle_buffer[buffer_B.head_pos]; //如果缓冲区非空则取头节点值并偏移头节点
             if(++ buffer_B.head_pos == BUFFER_MAX) buffer_B.head_pos = 0 ;                              //当buff溢出时，自动归0
             // if (++buffer_B.head_pos >= BUFFER_MAX)
@@ -170,18 +164,8 @@ uint8_t buf_pop(void) //出队列
             buffer_B.len--;
             if(buffer_B.len == 0)
             {
-                buff_r = 0;                                 //读归零
-                if(sw_flage == 1)
-                {
-                    buf_switch(0);
-                }
+                buff_r = 0;                             //切换解锁
             }
-
-
-            // if (buffer_B.len == 0 && sw_flage == 1)
-            // {
-            //     buf_switch(0);
-            // }
         }
         return data;
     }
